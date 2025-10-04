@@ -102,6 +102,35 @@
 *::-webkit-scrollbar { width: 0; height: 0; display: none; } /* WebKit */
 html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
 
+
+/* === STREAK TEXT VISIBILITY FIX === */
+.series-chip-gold{ white-space:nowrap; }
+.series-chip-gold .series-text{ display:inline !important; font-weight:800; font-size:13px; letter-spacing:.2px; color:#1a1400 !important; text-shadow:0 1px 0 rgba(255,255,255,.35); }
+.series-chip-gold .flame{ font-size:16px; line-height:1; }
+
+</style>
+<style>
+/* === STREAK TEXT HARD OVERRIDE === */
+.series-chip-gold{
+  font-size:13px !important;
+  line-height:1.1 !important;
+  min-height:28px;
+  padding:6px 10px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  white-space:nowrap !important;
+}
+.series-chip-gold *{
+  font-size:13px !important;
+  line-height:1.1 !important;
+  color:#1a1400 !important;
+}
+.series-chip-gold .series-text{
+  display:inline !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
 </style>
 </head>
 <body data-avatar-ready="1">
@@ -1016,7 +1045,7 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
       const cy = rect.top + 20;
       sparkles(cx, cy);
       const {type, n} = newEarned[newEarned.length-1];
-      showToast(type==='streak' ? `Новая серия: ${n} дней!` : `Новая награда: ${n} привыч${n===1?'ка':'ки'}`);
+      showToast(type==='streak' ? `Новый серия: ${n} дней!` : `Новая награда: ${n} привыч${n===1?'ка':'ки'}`);
       // Emphasize last unlocked badge
       const b = newEarned[newEarned.length-1].node;
       b.style.boxShadow = '0 10px 30px rgba(255,107,61,.45), inset 0 1px 0 rgba(255,255,255,.08)';
@@ -1103,225 +1132,25 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
 </script>
 
 
-<script>
-(function(){
-  const STORAGE_KEY = 'habit_traker_demo_v3';
-
-  function getState(){
-    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
-  }
-
-  function localizeStreak(){
-    const el = document.getElementById('profile-streak');
-    if(!el) return;
-    // Extract number from any text and rebuild as "Серия: N"
-    const m = (el.textContent||'').match(/(\d+)/);
-    const n = m ? m[1] : '0';
-    el.textContent = 'Серия: ' + n;
-
-    // Ensure single chip
-    const existing = document.querySelectorAll('#streak-chip-el');
-    existing.forEach((node, idx) => { if(idx>0) node.remove(); });
-
-    let chip = document.getElementById('streak-chip-el');
-    if(!chip){
-      chip = document.createElement('span');
-      chip.id = 'streak-chip-el';
-      chip.className = 'streak-chip';
-      chip.textContent = '🔥 Серия';
-      chip.style.marginLeft = '8px';
-      el.after(chip);
-    }
-  }
-
-  // Safe global refresh used by multiple places
-  window.refresh = function(){
-    try{
-      localizeStreak();
-      const s = getState();
-      if(s && typeof window.renderBadges === 'function'){
-        window.renderBadges(s);
-      }
-    }catch(e){ /* noop */ }
-  };
-
-  // Try to expose renderBadges if it exists inside the previous IIFE via override wrappers already set in v2
-  // We also schedule periodic refreshes and on-click updates.
-  document.addEventListener('DOMContentLoaded', function(){
-    window.refresh();
-    document.addEventListener('click', function(e){
-      const nav = e.target.closest('.nav-btn');
-      if(nav && nav.dataset && nav.dataset.view === 'view-profile'){
-        setTimeout(window.refresh, 60);
-      }
-      if(e.target.closest('.today-check,.check')){
-        setTimeout(window.refresh, 80);
-      }
-    }, {capture:true, passive:true});
-
-    // Fallback periodic refresh
-    setInterval(window.refresh, 1200);
-  });
-})();
-</script>
-
-
-<!-- === Final: Gold Gamified Series Chip === -->
+<!-- === PATCH: modal close + anti-duplicate rewards (streak & mastered) === -->
 <style>
-  /* Hide the original Streak/Серия label line beneath avatar */
-  #profile-streak{ display:none !important; }
-
-  /* Gold gamified chip */
-  .series-chip-gold{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:8px 12px;
-    border-radius:999px;
-    font-weight:800; font-size:13px; letter-spacing:.2px;
-    color:#1a1400;
-    background: radial-gradient(80% 140% at 20% 0%, #ffef9a, #ffd166 50%, #f7b733 80%) ;
-    border:1px solid rgba(255,215,120,.8);
-    box-shadow:
-      0 6px 22px rgba(247,183,51,.45),
-      inset 0 1px 0 rgba(255,255,255,.45),
-      inset 0 -2px 8px rgba(179,112,0,.25);
-    position:relative;
-  }
-  .series-chip-gold:after{
-    content:"";
-    position:absolute; inset:-2px;
-    border-radius:999px; pointer-events:none;
-    background: conic-gradient(from 0deg, rgba(255,255,255,.0), rgba(255,255,255,.22), rgba(255,255,255,.0));
-    filter: blur(10px); opacity:.65;
-    animation: chip-glow 2.4s linear infinite;
-  }
-  @keyframes chip-glow{
-    0%{ transform: rotate(0deg) }
-    100%{ transform: rotate(360deg) }
-  }
-  .series-chip-gold .flame{
-    font-size:16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
-  }
-  .series-chip-place{ margin-top:4px; }
+  .achv-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.60);display:none;align-items:center;justify-content:center;z-index:2147483647;backdrop-filter:blur(3px)}
+  .achv-backdrop.show{display:flex}
+  body.modal-open{overflow:hidden}
+  .achv-modal{width:min(92vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.30));border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px 16px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55);animation:achv-pop .45s ease both}
+  @keyframes achv-pop{0%{transform:scale(.86);opacity:0}60%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
+  .achv-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .achv-icon{font-size:22px;line-height:1;background:radial-gradient(80% 140% at 20% 0%,#ffef9a,#ffd166 50%,#f7b733 80%);padding:8px;border-radius:14px;border:1px solid rgba(255,215,120,.85);box-shadow:0 8px 22px rgba(247,183,51,.35),inset 0 1px 0 rgba(255,255,255,.45)}
+  .achv-title{font-weight:900;font-size:16px}
+  .achv-body{color:var(--muted);font-size:14px;margin-bottom:12px}
+  .achv-actions{display:flex;gap:8px;justify-content:flex-end}
+  .btn{padding:10px 12px;border-radius:12px;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:var(--panel);color:#e6eef3}
+  .btn.primary{background:linear-gradient(90deg,#ffd166,#f7b733);color:#1a1400;font-weight:800;border-color:rgba(255,215,120,.85);box-shadow:0 10px 20px rgba(247,183,51,.35)}
+  .series-chip-gold{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;font-weight:800;font-size:13px;letter-spacing:.2px;color:#1a1400;background:radial-gradient(80% 140% at 20% 0%,#ffef9a,#ffd166 50%,#f7b733 80%);border:1px solid rgba(255,215,120,.85);box-shadow:0 6px 22px rgba(247,183,51,.35),inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 8px rgba(179,112,0,.25)}
+  #profile-streak{display:none!important;height:0!important;overflow:hidden!important}
 </style>
-<script>
-(function(){
-  const STORAGE_KEY = 'habit_traker_demo_v3';
 
-  function getState(){
-    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
-  }
-
-  function ensureSeriesChip(){
-    const profile = document.getElementById('view-profile');
-    if(!profile) return;
-
-    // Place chip right where medals title is (under avatar/name block)
-    // We'll try to insert near the name container
-    const nameWrap = profile.querySelector('.name')?.parentElement || profile;
-    let holder = document.getElementById('series-chip-holder');
-    if(!holder){
-      holder = document.createElement('div');
-      holder.id = 'series-chip-holder';
-      holder.className = 'series-chip-place';
-      nameWrap.after(holder);
-    }
-
-    let chip = document.getElementById('series-chip-gold');
-    if(!chip){
-      chip = document.createElement('span');
-      chip.id = 'series-chip-gold';
-      chip.className = 'series-chip-gold';
-      chip.innerHTML = `<span class="flame">🔥</span><span class="txt">Серия 0 дней</span>`;
-      holder.innerHTML = '';
-      holder.appendChild(chip);
-    }
-    return chip;
-  }
-
-  function updateSeriesChip(){
-    const s = getState();
-    const chip = ensureSeriesChip();
-    if(!chip) return;
-    const streak = (s && s.profile && typeof s.profile.streak==='number') ? s.profile.streak : 0;
-    const txt = chip.querySelector('.txt');
-    if(txt){
-      txt.textContent = 'Серия ' + streak + ' ' + decl(streak, ['день','дня','дней']);
-    }
-  }
-
-  function decl(n, forms){
-    n = Math.abs(n) % 100; var n1 = n % 10;
-    if (n>10 && n<20) return forms[2];
-    if (n1>1 && n1<5) return forms[1];
-    if (n1==1) return forms[0];
-    return forms[2];
-  }
-
-  // Public refresh (kept if earlier code uses it)
-  window.refresh = function(){
-    try{ updateSeriesChip(); if(typeof window.renderBadges==='function'){ const s = getState(); if(s) window.renderBadges(s); } }catch(e){}
-  };
-
-  document.addEventListener('DOMContentLoaded', function(){
-    updateSeriesChip();
-    // re-run when switching to Profile
-    document.addEventListener('click', function(ev){
-      const nav = ev.target.closest('.nav-btn');
-      if(nav && nav.dataset && nav.dataset.view === 'view-profile'){
-        setTimeout(updateSeriesChip, 60);
-      }
-      if(ev.target.closest('.today-check,.check')){
-        setTimeout(window.refresh, 100);
-      }
-    }, {capture:true, passive:true});
-
-    // Light periodic sync
-    setInterval(updateSeriesChip, 1500);
-  });
-})();
-</script>
-<!-- === /Final: Gold Gamified Series Chip === -->
-
-
-<!-- === Achievement Modal + Cleanup (v6) === -->
-<style>
-  /* Modal styles */
-  .achv-backdrop{
-    position:fixed; inset:0; background:rgba(0,0,0,.55);
-    display:none; align-items:center; justify-content:center; z-index:999999;
-    backdrop-filter: blur(3px);
-  }
-  .achv-backdrop.show{ display:flex; }
-  .achv-modal{
-    width:min(92vw, 380px);
-    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.3));
-    border:1px solid rgba(255,255,255,.12);
-    border-radius:20px; padding:18px 16px 16px;
-    box-shadow:0 18px 50px rgba(0,0,0,.55);
-    animation: achv-pop .45s ease both;
-  }
-  @keyframes achv-pop{ 0%{ transform:scale(.86); opacity:0 } 60%{ transform:scale(1.04); opacity:1 } 100%{ transform:scale(1) } }
-  .achv-header{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-  .achv-icon{
-    font-size:22px; line-height:1;
-    background: radial-gradient(80% 140% at 20% 0%, #ffef9a, #ffd166 50%, #f7b733 80%);
-    padding:8px; border-radius:14px; border:1px solid rgba(255,215,120,.8);
-    box-shadow: 0 8px 22px rgba(247,183,51,.35), inset 0 1px 0 rgba(255,255,255,.45);
-  }
-  .achv-title{ font-weight:900; font-size:16px; }
-  .achv-body{ color:var(--muted); font-size:14px; margin-bottom:12px; }
-  .achv-actions{ display:flex; gap:8px; justify-content:flex-end; }
-  .btn{
-    padding:10px 12px; border-radius:12px; cursor:pointer; border:1px solid rgba(255,255,255,.12);
-    background:var(--panel); color:#e6eef3;
-  }
-  .btn.primary{
-    background:linear-gradient(90deg, #ffd166, #f7b733);
-    color:#1a1400; font-weight:800; border-color:rgba(255,215,120,.8);
-    box-shadow: 0 10px 20px rgba(247,183,51,.35);
-  }
-</style>
-<div class="achv-backdrop" id="achv-backdrop" aria-hidden="true">
+<div class="achv-backdrop" id="achv-backdrop" aria-hidden="true" style="display:none">
   <div class="achv-modal" role="dialog" aria-modal="true" aria-labelledby="achv-title">
     <div class="achv-header">
       <div class="achv-icon">🏆</div>
@@ -1334,448 +1163,117 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
     </div>
   </div>
 </div>
+
 <script>
 (function(){
-  const STORAGE_KEY = 'habit_traker_demo_v3';
-  // Remove legacy chip without number if exists
-  function cleanupLegacyChip(){
-    const oldChip = document.getElementById('streak-chip-el');
-    if(oldChip) oldChip.remove();
+  const STORAGE_KEY='habit_traker_demo_v3';
+  const LOG_KEY=STORAGE_KEY+'_achvlog';
+  const STREAK_STEPS=[7,14,21,30,45,60,75,90,100,120];
+  const MASTERED_STEPS=[1,2,3,4,5];
+
+  function getState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');}catch(e){return null;}}
+  function setState(s){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}catch(e){}}
+  function getLog(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'{"streak":{},"mastered":{}}');}catch(e){return{streak:{},mastered:{}};}}
+  function setLog(l){try{localStorage.setItem(LOG_KEY,JSON.stringify(l));}catch(e){}}
+  function isoDate(d){const t=new Date(d.getFullYear(),d.getMonth(),d.getDate());return t.toISOString().slice(0,10);}
+  function decl(n,f){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return f[2];if(n1>1&&n1<5)return f[1];if(n1==1)return f[0];return f[2];}
+  function snapshotHabits(s){const m=new Map();(s?.habits||[]).forEach(h=>{const t=h?.targetDays?Math.max(1,h.targetDays):null;const set=new Set(Array.isArray(h?.days)?h.days.slice():[]);m.set(h.id,{target:t,set,count:set.size});});return m;}
+  function masteredCount(snap){let c=0;snap.forEach(v=>{if(v.target&&v.count>=v.target)c++;});return c;}
+
+  function openModal(m){const b=document.getElementById('achv-backdrop');const t=document.getElementById('achv-text');if(!b||!t)return;t.textContent=m||'Вы разблокировали награду.';b.style.display='flex';b.classList.add('show');document.body.classList.add('modal-open');}
+  function closeModal(){const b=document.getElementById('achv-backdrop');if(!b)return;b.classList.remove('show');b.style.display='none';document.body.classList.remove('modal-open');}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  document.getElementById('achv-ok')?.addEventListener('click',closeModal,{passive:true});
+  document.getElementById('achv-close')?.addEventListener('click',closeModal,{passive:true});
+  document.getElementById('achv-backdrop')?.addEventListener('click',e=>{if(e.target.id==='achv-backdrop')closeModal();},{passive:true});
+
+  function ensureChip(){
+    const p=document.getElementById('view-profile'); if(!p) return;
+    const name=p.querySelector('.name');
+    let h=document.getElementById('series-chip-holder');
+    if(!h){ h=document.createElement('div'); h.id='series-chip-holder'; h.className='series-chip-place'; if(name&&name.parentElement) name.parentElement.after(h); else p.prepend(h); }
+    let c=document.getElementById('series-chip-gold');
+    if(!c){ c=document.createElement('span'); c.id='series-chip-gold'; c.className='series-chip-gold'; c.innerHTML='<span class="flame">🔥</span><span class="series-text">Серия 0 дней</span>'; h.innerHTML=''; h.appendChild(c); }
+    // cleanup duplicates
+    p.querySelectorAll('#streak-chip-el').forEach(n=>n.remove());
+    h.querySelectorAll('span').forEach(n=>{ if(n.id!=='series-chip-gold') n.remove(); });
   }
-  cleanupLegacyChip();
-
-  // Modal helpers
-  function openAchv(text){
-    try{
-      const bd = document.getElementById('achv-backdrop');
-      const t  = document.getElementById('achv-text');
-      if(!bd || !t) return;
-      t.textContent = text || 'Вы разблокировали награду.';
-      bd.classList.add('show'); bd.setAttribute('aria-hidden','false');
-    }catch(e){}
+  function updateChip(){
+    const s=getState()||{}; const c=document.getElementById('series-chip-gold'); if(!c) return;
+    const t=c.querySelector('.series-text') || querySelector('.txt'); const v=(s.profile?.streak)||0; if(t) t.textContent='Серия '+v+' '+decl(v,['день','дня','дней']);
   }
-  function closeAchv(){
-    try{
-      const bd = document.getElementById('achv-backdrop');
-      if(!bd) return;
-      bd.classList.remove('show'); bd.setAttribute('aria-hidden','true');
-    }catch(e){}
-  }
-  document.addEventListener('DOMContentLoaded', function(){
-    const bd = document.getElementById('achv-backdrop');
-    const ok = document.getElementById('achv-ok');
-    const cl = document.getElementById('achv-close');
-    ok && ok.addEventListener('click', closeAchv, {passive:true});
-    cl && cl.addEventListener('click', closeAchv, {passive:true});
-    bd && bd.addEventListener('click', function(e){ if(e.target === bd) closeAchv(); }, {passive:true});
-  });
 
-  // Hook into renderBadges to trigger modal on new unlocks
-  // We wrap existing window.renderBadges if present, otherwise we create a new one that only sets UI state (no modal triggers).
-  (function(){
-    const original = window.renderBadges;
-    window.renderBadges = function(state){
-      const prevStateRaw = localStorage.getItem(STORAGE_KEY);
-      let prevBadges = {streak:[], mastered:[]};
-      try{
-        const s = JSON.parse(prevStateRaw||'null');
-        if(s && s.profile && s.profile.badges){
-          prevBadges = { 
-            streak: Array.isArray(s.profile.badges.streak) ? s.profile.badges.streak.slice() : [],
-            mastered: Array.isArray(s.profile.badges.mastered) ? s.profile.badges.mastered.slice() : []
-          };
-        }
-      }catch(_){}
+  document.addEventListener('click',function(e){
+    const today=!!e.target.closest('.today-check,.check');
+    const nav=e.target.closest('.nav-btn');
+    if(!today && !(nav&&nav.dataset&&nav.dataset.view==='view-profile'))return;
 
-      // Call existing implementation to re-render UI + persist newly earned
-      if(typeof original === 'function'){
-        original(state);
-      }
+    const date=isoDate(new Date());
+    let prevSnap=null, prevMaster=null, prevStreak=null;
+    if(today){
+      const sp=getState()||{}; prevSnap=snapshotHabits(sp); prevMaster=new Set((sp.profile?.badges?.mastered)||[]); prevStreak=new Set((sp.profile?.badges?.streak)||[]);
+    }
 
-      // Compare after original render/persist
-      try{
-        const after = JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
-        let gained = [];
-        if(after && after.profile && after.profile.badges){
-          const aS = new Set(after.profile.badges.streak||[]);
-          const aM = new Set(after.profile.badges.mastered||[]);
-          const pS = new Set(prevBadges.streak||[]);
-          const pM = new Set(prevBadges.mastered||[]);
+    setTimeout(function(){
+      ensureChip(); updateChip();
+      if(today){
+        const s=getState()||{}; const next=snapshotHabits(s);
+        const log=getLog(); log.mastered[date]=log.mastered[date]||{}; log.streak[date]=log.streak[date]||{};
 
-          // Any newly added items?
-          aS.forEach(n=>{ if(!pS.has(n)) gained.push({type:'streak', n}); });
-          aM.forEach(n=>{ if(!pM.has(n)) gained.push({type:'mastered', n}); });
-        }
-        if(gained.length){
-          const last = gained[gained.length-1];
-          if(last.type==='streak'){
-            openAchv('Поздравляем! Новая серия: ' + last.n + ' ' + decl(last.n, ['день','дня','дней']));
-          } else {
-            openAchv('Поздравляем! Освоено привычек: ' + last.n);
+        // mastered: last day only, once per day per habit
+        let doneId=null;
+        next.forEach((n,id)=>{
+          const p=prevSnap.get(id); if(!p) return;
+          const d=n.count-p.count;
+          const tw=p.set.has(date), tn=n.set.has(date);
+          const fin=!!n.target && n.count===n.target;
+          if(d===1 && !tw && tn && fin && !log.mastered[date][id]) doneId=id;
+        });
+        if(doneId){
+          log.mastered[date][doneId]=true; setLog(log);
+          const pc=[...prevSnap.values()].filter(v=>v.target&&v.count>=v.target).length;
+          const nc=[...next.values()].filter(v=>v.target&&v.count>=v.target).length;
+          if(nc>pc){
+            const s2=getState()||{}; const setM=new Set((s2.profile?.badges?.mastered)||[]);
+            let add=0; for(const st of MASTERED_STEPS){ if(nc>=st && !prevMaster.has(st)) add=st; }
+            if(add){ setM.add(add); s2.profile=s2.profile||{}; s2.profile.badges=s2.profile.badges||{}; s2.profile.badges.mastered=[...setM].sort((a,b)=>a-b); setState(s2); if(typeof window.renderBadges==='function') window.renderBadges(s2); }
           }
+          openModal('Поздравляем! Привычка завершена 🎉');
         }
-      }catch(_){}
-    };
-  })();
 
-  function decl(n, forms){
-    n = Math.abs(n) % 100; var n1 = n % 10;
-    if (n>10 && n<20) return forms[2];
-    if (n1>1 && n1<5) return forms[1];
-    if (n1==1) return forms[0];
-    return forms[2];
-  }
-})();
-</script>
-<!-- === /Achievement Modal + Cleanup (v6) === -->
-
-
-<!-- === v7: Strong fixes for duplicates & instant achievements === -->
-<style>
-  /* Ensure profile streak text never shows and can't affect layout */
-  #profile-streak{ display:none !important; height:0 !important; overflow:hidden !important; }
-
-  /* Topmost, full-screen modal */
-  .achv-backdrop{
-    position:fixed; inset:0;
-    background:rgba(0,0,0,.60);
-    display:none; align-items:center; justify-content:center;
-    z-index:2147483647; /* absolute top */
-    backdrop-filter: blur(3px);
-  }
-  .achv-backdrop.show{ display:flex; }
-
-  /* When modal open, prevent background scroll */
-  body.modal-open{ overflow:hidden; }
-
-  /* Make the modal slightly larger on mobile for "full screen feel" */
-  @media (max-width: 480px){
-    .achv-modal{ width:92vw; }
-  }
-</style>
-<script>
-(function(){
-  const STORAGE_KEY = 'habit_traker_demo_v3';
-  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
-  const MASTERED_STEPS = [1,2,3,4,5];
-
-  function getState(){
-    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
-  }
-  function setState(s){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){}
-  }
-  function ensureProfileFields(s){
-    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
-    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
-  }
-  function computeMastered(s){
-    let c=0; (s.habits||[]).forEach(h=>{ if(h && h.targetDays && Array.isArray(h.days) && h.days.length >= Math.max(1,h.targetDays)) c++; });
-    return c;
-  }
-  function decl(n, forms){
-    n = Math.abs(n) % 100; var n1 = n % 10;
-    if (n>10 && n<20) return forms[2];
-    if (n1>1 && n1<5) return forms[1];
-    if (n1==1) return forms[0];
-    return forms[2];
-  }
-
-  /* ===== Duplicate chip prevention ===== */
-  function removeLegacyChips(){
-    document.querySelectorAll('#streak-chip-el').forEach(n=> n.remove());
-  }
-  function keepOnlyGoldChip(){
-    const holder = document.getElementById('series-chip-holder');
-    if(!holder) return;
-    const gold = document.getElementById('series-chip-gold');
-    // Remove any stray chips inside holder except our gold
-    holder.querySelectorAll('span').forEach(n=>{ if(n.id !== 'series-chip-gold') n.remove(); });
-    // Also scan profile block for any chips with text "Серия" and remove extras
-    const prof = document.getElementById('view-profile') || document;
-    const chips = prof.querySelectorAll('span');
-    let seenGold = false;
-    chips.forEach(n=>{
-      if(n.id==='series-chip-gold'){ if(seenGold) n.remove(); seenGold=true; }
-      else if(/Серия/i.test(n.textContent||'')){ n.remove(); }
-    });
-  }
-
-  /* ===== Modal control ===== */
-  function openAchvFullscreen(text){
-    const bd = document.getElementById('achv-backdrop');
-    const body = document.body;
-    const t  = document.getElementById('achv-text');
-    if(!bd || !t) return;
-    t.textContent = text || 'Вы разблокировали награду.';
-    bd.classList.add('show');
-    body.classList.add('modal-open');
-  }
-  function closeAchv(){
-    const bd = document.getElementById('achv-backdrop');
-    const body = document.body;
-    if(!bd) return;
-    bd.classList.remove('show');
-    body.classList.remove('modal-open');
-  }
-  document.addEventListener('DOMContentLoaded', function(){
-    const bd = document.getElementById('achv-backdrop');
-    const ok = document.getElementById('achv-ok');
-    const cl = document.getElementById('achv-close');
-    ok && ok.addEventListener('click', closeAchv, {passive:true});
-    cl && cl.addEventListener('click', closeAchv, {passive:true});
-    bd && bd.addEventListener('click', function(e){ if(e.target === bd) closeAchv(); }, {passive:true});
-  });
-
-  /* ===== Immediate achievement trigger (no refresh needed) ===== */
-  function evaluateAndTrigger(){
-    const s = getState();
-    if(!s) return;
-    ensureProfileFields(s);
-    const beforeStreak = new Set(s.profile.badges.streak||[]);
-    const beforeMastered = new Set(s.profile.badges.mastered||[]);
-
-    const curStreak = s.profile.streak || 0;
-    const curMastered = computeMastered(s);
-
-    // Determine which thresholds should be unlocked now
-    const newStreak = STREAK_STEPS.filter(n=> curStreak>=n && !beforeStreak.has(n));
-    const newMastered = MASTERED_STEPS.filter(n=> curMastered>=n && !beforeMastered.has(n));
-
-    if(newStreak.length || newMastered.length){
-      // Persist new earned badges
-      const mergedS = new Set([...beforeStreak, ...newStreak]); s.profile.badges.streak = Array.from(mergedS).sort((a,b)=>a-b);
-      const mergedM = new Set([...beforeMastered, ...newMastered]); s.profile.badges.mastered = Array.from(mergedM).sort((a,b)=>a-b);
-      setState(s);
-
-      // Update medals UI if available
-      try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
-
-      // Open modal for the last newly earned
-      const msg = newStreak.length
-        ? ('Поздравляем! Новая серия: ' + newStreak[newStreak.length-1] + ' ' + decl(newStreak[newStreak.length-1], ['день','дня','дней']))
-        : ('Поздравляем! Освоено привычек: ' + newMastered[newMastered.length-1]);
-      openAchvFullscreen(msg);
-    }
-  }
-
-  /* Hook clicks on "сегодня" and nav to профиль */
-  document.addEventListener('DOMContentLoaded', function(){
-    // Remove any duplicates early
-    removeLegacyChips();
-    keepOnlyGoldChip();
-
-    document.addEventListener('click', function(e){
-      // checkbox click -> short delay to let app update storage, then evaluate
-      if(e.target.closest('.today-check,.check')){
-        setTimeout(function(){
-          try{
-            // also update series chip number if our global refresh exists
-            if(window.refresh) window.refresh();
-            evaluateAndTrigger();
-          }catch(_){}
-        }, 80);
-      }
-      // entering profile view -> clean duplicates and update chip text
-      const nav = e.target.closest('.nav-btn');
-      if(nav && nav.dataset && nav.dataset.view === 'view-profile'){
-        setTimeout(function(){
-          try{
-            removeLegacyChips();
-            keepOnlyGoldChip();
-            if(window.refresh) window.refresh();
-          }catch(_){}
-        }, 60);
-      }
-    }, {capture:true, passive:true});
-
-    // Keep things tidy over time
-    setInterval(function(){
-      try{
-        keepOnlyGoldChip();
-      }catch(_){}
-    }, 2000);
-  });
-})();
-</script>
-<!-- === /v7 fixes === -->
-
-
-<!-- === v8: Robust streak recompute + full-screen modal behavior === -->
-<script>
-(function(){
-  const STORAGE_KEY = 'habit_traker_demo_v3';
-  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
-  const MASTERED_STEPS = [1,2,3,4,5];
-
-  function getState(){
-    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
-  }
-  function setState(s){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){}
-  }
-  function ensureProfileFields(s){
-    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
-    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
-  }
-  function isoDate(d){ const t=new Date(d.getFullYear(), d.getMonth(), d.getDate()); return t.toISOString().slice(0,10); }
-  function computeStreakFromState(s){
-    let streak = 0;
-    if(!s || !Array.isArray(s.habits) || s.habits.length===0) return 0;
-    const d = new Date();
-    while(true){
-      const key = isoDate(d);
-      const anyDone = s.habits.some(h => Array.isArray(h.days) && h.days.includes(key));
-      if(anyDone){ streak++; d.setDate(d.getDate()-1); } else { break; }
-    }
-    return streak;
-  }
-  function computeMastered(s){
-    let c=0; (s.habits||[]).forEach(h=>{ if(h && h.targetDays && Array.isArray(h.days) && h.days.length >= Math.max(1,h.targetDays)) c++; });
-    return c;
-  }
-  function decl(n, forms){
-    n = Math.abs(n) % 100; var n1 = n % 10;
-    if (n>10 && n<20) return forms[2];
-    if (n1>1 && n1<5) return forms[1];
-    if (n1==1) return forms[0];
-    return forms[2];
-  }
-
-  // Gold series chip updater (single source of truth)
-  function updateGoldChip(){
-    const holder = document.getElementById('series-chip-holder');
-    if(!holder) return;
-    let chip = document.getElementById('series-chip-gold');
-    if(!chip){
-      chip = document.createElement('span');
-      chip.id = 'series-chip-gold';
-      chip.className = 'series-chip-gold';
-      chip.innerHTML = `<span class="flame">🔥</span><span class="txt">Серия 0 дней</span>`;
-      holder.innerHTML = ''; holder.appendChild(chip);
-    }
-    const s = getState(); ensureProfileFields(s);
-    const txt = chip.querySelector('.txt');
-    const v = typeof s.profile.streak==='number' ? s.profile.streak : 0;
-    if(txt) txt.textContent = 'Серия ' + v + ' ' + decl(v, ['день','дня','дней']);
-  }
-
-  function recomputeAndPersistStreakNow(){
-    const s = getState(); if(!s){ return 0; }
-    ensureProfileFields(s);
-    const v = computeStreakFromState(s);
-    if(s.profile.streak !== v){ s.profile.streak = v; setState(s); }
-    return v;
-  }
-
-  function evaluateAchievementsImmediate(){
-    const s = getState(); if(!s) return;
-    ensureProfileFields(s);
-    const curStreak = s.profile.streak || 0;
-    const curMastered = computeMastered(s);
-    const prevS = new Set(s.profile.badges.streak||[]);
-    const prevM = new Set(s.profile.badges.mastered||[]);
-    const newS = STREAK_STEPS.filter(n => curStreak>=n && !prevS.has(n));
-    const newM = MASTERED_STEPS.filter(n => curMastered>=n && !prevM.has(n));
-    if(newS.length || newM.length){
-      s.profile.badges.streak = Array.from(new Set([...prevS, ...newS])).sort((a,b)=>a-b);
-      s.profile.badges.mastered = Array.from(new Set([...prevM, ...newM])).sort((a,b)=>a-b);
-      setState(s);
-      try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
-      const msg = newS.length
-        ? ('Поздравляем! Новая серия: ' + newS[newS.length-1] + ' ' + decl(newS[newS.length-1], ['день','дня','дней']))
-        : ('Поздравляем! Освоено привычек: ' + newM[newM.length-1]);
-      // open modal (fullscreen; function defined in earlier patch)
-      try{
-        if(typeof openAchvFullscreen==='function'){ openAchvFullscreen(msg); }
-        else {
-          // fallback to previous openAchv
-          if(typeof openAchv==='function') openAchv(msg);
-          // also toggle class to prevent scroll if backdrop exists
-          const bd = document.getElementById('achv-backdrop');
-          if(bd){ document.body.classList.add('modal-open'); bd.classList.add('show'); }
+        // streak: trigger once per day per threshold
+        const sNow=getState()||{}; const cur=(sNow.profile?.streak)||0;
+        let addS=0; for(const n of STREAK_STEPS){ if(cur>=n && !prevStreak.has(n)) addS=n; }
+        if(addS && !log.streak[date][addS]){
+          log.streak[date][addS]=true; setLog(log);
+          const setS=new Set((sNow.profile?.badges?.streak)||[]); setS.add(addS);
+          sNow.profile=sNow.profile||{}; sNow.profile.badges=sNow.profile.badges||{}; sNow.profile.badges.streak=[...setS].sort((a,b)=>a-b); setState(sNow);
+          if(typeof window.renderBadges==='function') window.renderBadges(sNow);
+          openModal('Поздравляем! Новая серия: '+addS+' '+decl(addS,['день','дня','дней']));
         }
-      }catch(_){}
-    }
-  }
-
-  // Clean any duplicate chips every so often
-  function cleanDuplicates(){
-    const holder = document.getElementById('series-chip-holder');
-    if(holder){
-      // Remove all spans except series-chip-gold
-      holder.querySelectorAll('span').forEach(n=>{ if(n.id!=='series-chip-gold') n.remove(); });
-    }
-    // Remove any old chips elsewhere
-    document.querySelectorAll('#streak-chip-el').forEach(n=> n.remove());
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    // Initial recompute to sync state (ensures streak visible without relying on app render)
-    recomputeAndPersistStreakNow();
-    updateGoldChip();
-    cleanDuplicates();
-
-    // Clicks on "Сегодня" => recompute, update chip, achievements
-    document.addEventListener('click', function(e){
-      if(e.target.closest('.today-check,.check')){
-        setTimeout(function(){
-          try{
-            recomputeAndPersistStreakNow();
-            updateGoldChip();
-            evaluateAchievementsImmediate();
-          }catch(_){}
-        }, 90);
       }
-      const nav = e.target.closest('.nav-btn');
-      if(nav && nav.dataset && nav.dataset.view==='view-profile'){
-        setTimeout(function(){
-          try{
-            recomputeAndPersistStreakNow();
-            updateGoldChip();
-            cleanDuplicates();
-          }catch(_){}
-        }, 60);
-      }
-    }, {capture:true, passive:true});
 
-    // Periodic safety sync (very light)
-    setInterval(function(){
-      try{
-        recomputeAndPersistStreakNow();
-        updateGoldChip();
-        cleanDuplicates();
-      }catch(_){}
-    }, 2000);
-  });
+      if(nav&&nav.dataset&&nav.dataset.view==='view-profile'){ ensureChip(); updateChip(); }
+    }, today?140:70);
+  }, {capture:true, passive:true});
+
+  document.addEventListener('DOMContentLoaded', function(){ ensureChip(); updateChip(); });
 })();
 </script>
-<!-- === /v8 === -->
+<!-- === /PATCH === -->
 
 
-<!-- === v9: Guaranteed chip + exact mastered trigger on last day === -->
+<!-- === PATCH: STREAK FIX ONLY (recompute + chip update) === -->
 <script>
 (function(){
   const STORAGE_KEY = 'habit_traker_demo_v3';
-  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
 
   function getState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; } }
   function setState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){} }
-  function ensureProfileFields(s){
-    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
-    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
-  }
-  function isoDate(d){ const t=new Date(d.getFullYear(), d.getMonth(), d.getDate()); return t.toISOString().slice(0,10); }
-  function computeStreakFromState(s){
-    let streak = 0;
-    if(!s || !Array.isArray(s.habits) || s.habits.length===0) return 0;
-    const d = new Date();
-    while(true){
-      const key = isoDate(d);
-      const anyDone = s.habits.some(h => Array.isArray(h.days) && h.days.includes(key));
-      if(anyDone){ streak++; d.setDate(d.getDate()-1); } else { break; }
-    }
-    return streak;
+
+  function isoDate(d){
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return t.toISOString().slice(0,10);
   }
   function decl(n, forms){
     n = Math.abs(n) % 100; var n1 = n % 10;
@@ -1785,290 +1283,89 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
     return forms[2];
   }
 
-  /* ===== Ensure chip holder & chip exist ===== */
-  function ensureGoldChipHolder(){
+  function computeStreakFromState(s){
+    if(!s || !Array.isArray(s.habits) || s.habits.length===0) return 0;
+    let streak = 0;
+    const d = new Date();
+    while(true){
+      const key = isoDate(d);
+      const anyDone = s.habits.some(h => Array.isArray(h.days) && h.days.includes(key));
+      if(anyDone){ streak++; d.setDate(d.getDate()-1); } else { break; }
+    }
+    return streak;
+  }
+
+  function updateGoldChipText(){
+    const chip = document.getElementById('series-chip-gold');
+    const s = getState() || {};
+    const v = (s.profile && typeof s.profile.streak==='number') ? s.profile.streak : 0;
+    if(chip){
+      let txt = chip.querySelector('.series-text') || chip.querySelector('.series-text') || querySelector('.txt');
+      if(txt){ txt.textContent = 'Серия ' + v + ' ' + decl(v, ['день','дня','дней']); }
+    }
+  }
+
+  function ensureGoldChip(){
     const profile = document.getElementById('view-profile');
-    if(!profile) return null;
-    const nameNode = profile.querySelector('.name');
+    if(!profile) return;
+    const name = profile.querySelector('.name');
     let holder = document.getElementById('series-chip-holder');
     if(!holder){
       holder = document.createElement('div');
       holder.id = 'series-chip-holder';
       holder.className = 'series-chip-place';
-      if(nameNode && nameNode.parentElement){
-        nameNode.parentElement.after(holder);
-      } else {
-        profile.prepend(holder);
-      }
+      if(name && name.parentElement){ name.parentElement.after(holder); } else { profile.prepend(holder); }
     }
     let chip = document.getElementById('series-chip-gold');
     if(!chip){
       chip = document.createElement('span');
       chip.id = 'series-chip-gold';
       chip.className = 'series-chip-gold';
-      chip.innerHTML = `<span class="flame">🔥</span><span class="txt">Серия 0 дней</span>`;
-      holder.innerHTML = ''; holder.appendChild(chip);
+      chip.innerHTML = '<span class="flame">🔥</span><span class="series-text">Серия 0 дней</span>';
+      holder.innerHTML = '';
+      holder.appendChild(chip);
     }
-    return {holder, chip};
   }
 
-  function updateGoldChip(){
-    const s = getState(); if(!s) return;
-    ensureProfileFields(s);
-    const nodes = ensureGoldChipHolder(); if(!nodes) return;
-    const txt = nodes.chip.querySelector('.txt');
-    const v = typeof s.profile.streak==='number' ? s.profile.streak : 0;
-    if(txt) txt.textContent = 'Серия ' + v + ' ' + decl(v, ['день','дня','дней']);
-  }
-
-  function recomputeAndPersistStreakNow(){
-    const s = getState(); if(!s){ return 0; }
-    ensureProfileFields(s);
+  function recomputeAndPersist(){
+    const s = getState() || {};
+    s.profile = s.profile || {streak:0};
     const v = computeStreakFromState(s);
-    if(s.profile.streak !== v){ s.profile.streak = v; setState(s); }
-    return v;
-  }
-
-  /* ===== Exact "mastered on last day" detection ===== */
-  function getMasteredMap(s){
-    const map = new Map();
-    (s?.habits||[]).forEach(h=>{
-      const td = h?.targetDays ? Math.max(1, h.targetDays) : null;
-      const done = Array.isArray(h?.days) ? h.days.length : 0;
-      map.set(h.id, {target: td, done});
-    });
-    return map;
-  }
-
-  function detectNewMastered(prevMap, nextMap){
-    // Returns number of newly mastered habits (transition from done == target-1 to done == target)
-    let newCount = 0;
-    nextMap.forEach((v, id)=>{
-      const p = prevMap.get(id);
-      if(!v || !v.target) return;
-      const justCompleted = (p && p.done === v.target - 1) && (v.done === v.target);
-      if(justCompleted) newCount++;
-    });
-    return newCount;
-  }
-
-  /* ===== Modal helpers (reuse from previous versions if available) ===== */
-  function openFullscreen(text){
-    if(typeof openAchvFullscreen === 'function'){ openAchvFullscreen(text); return; }
-    const bd = document.getElementById('achv-backdrop');
-    const t  = document.getElementById('achv-text');
-    if(bd && t){
-      t.textContent = text || 'Вы разблокировали награду.';
-      bd.classList.add('show'); document.body.classList.add('modal-open');
+    if(s.profile.streak !== v){
+      s.profile.streak = v;
+      setState(s);
     }
+    updateGoldChipText();
   }
 
   document.addEventListener('DOMContentLoaded', function(){
-    // Initial sync
-    recomputeAndPersistStreakNow();
-    updateGoldChip();
+    // Initial compute & render
+    ensureGoldChip();
+    recomputeAndPersist();
 
-    // Click handler with pre/post snapshots to catch "last day" exactly
+    // Recompute after toggling "Сегодня"
     document.addEventListener('click', function(e){
-      const isToday = !!e.target.closest('.today-check,.check');
-      const nav = e.target.closest('.nav-btn');
-      let prevMasteredMap = null;
-      if(isToday){
-        const sPrev = getState() || {};
-        prevMasteredMap = getMasteredMap(sPrev);
+      if(e.target.closest('.today-check,.check')){
+        setTimeout(recomputeAndPersist, 120);
       }
-      // After click is processed by app, recompute
-      setTimeout(function(){
-        try{
-          recomputeAndPersistStreakNow();
-          updateGoldChip();
-
-          if(isToday){
-            const sNext = getState() || {};
-            const nextMasteredMap = getMasteredMap(sNext);
-
-            const newlyMastered = prevMasteredMap ? detectNewMastered(prevMasteredMap, nextMasteredMap) : 0;
-
-            // If exactly completed a habit today -> show mastered modal (single increment)
-            if(newlyMastered > 0){
-              openFullscreen('Поздравляем! Привычка завершена 🎉');
-              // Also persist mastered badges count threshold if crossed (1..5) now
-              const prevBadges = new Set((sPrev?.profile?.badges?.mastered)||[]);
-              const masteredCount = Array.from(nextMasteredMap.values()).filter(v=> v.target && v.done >= v.target).length;
-              let toAdd = 0;
-              for(let step of [1,2,3,4,5]){ if(masteredCount >= step && !prevBadges.has(step)) toAdd = step; }
-              if(toAdd){
-                const s = getState(); ensureProfileFields(s);
-                const setM = new Set((s.profile.badges.mastered)||[]); setM.add(toAdd);
-                s.profile.badges.mastered = Array.from(setM).sort((a,b)=>a-b);
-                setState(s);
-                try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
-              }
-            }
-
-            // Streak thresholds check (after recompute)
-            const sNow = getState() || {};
-            ensureProfileFields(sNow);
-            const curStreak = sNow.profile.streak||0;
-            const prevS = new Set((sPrev?.profile?.badges?.streak)||[]);
-            let streakAdd = 0;
-            for(let n of STREAK_STEPS){ if(curStreak>=n && !prevS.has(n)) streakAdd = n; }
-            if(streakAdd){
-              const s = getState(); ensureProfileFields(s);
-              const setS = new Set((s.profile.badges.streak)||[]); setS.add(streakAdd);
-              s.profile.badges.streak = Array.from(setS).sort((a,b)=>a-b);
-              setState(s);
-              try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
-              openFullscreen('Поздравляем! Новая серия: ' + streakAdd + ' ' + decl(streakAdd, ['день','дня','дней']));
-            }
-          }
-        }catch(_){}
-      }, isToday ? 120 : (nav ? 60 : 0));
     }, {capture:true, passive:true});
-
-    // Periodic gentle sync for chip
-    setInterval(function(){ try{ recomputeAndPersistStreakNow(); updateGoldChip(); }catch(_){} }, 2500);
   });
 })();
 </script>
-<!-- === /v9 === -->
+<!-- === /PATCH: STREAK FIX ONLY === -->
 
 
-<!-- === v10: Exact per-habit last-day detection === -->
 <script>
-(function(){
-  const STORAGE_KEY = 'habit_traker_demo_v3';
-  const MASTERED_STEPS = [1,2,3,4,5];
-  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
-
-  function getState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; } }
-  function setState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){} }
-  function ensureProfileFields(s){
-    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
-    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
-  }
-  function isoDate(d){ const t=new Date(d.getFullYear(), d.getMonth(), d.getDate()); return t.toISOString().slice(0,10); }
-  function decl(n, forms){
-    n = Math.abs(n) % 100; var n1 = n % 10;
-    if (n>10 && n<20) return forms[2];
-    if (n1>1 && n1<5) return forms[1];
-    if (n1==1) return forms[0];
-    return forms[2];
-  }
-
-  function snapshotHabits(s){
-    const map = new Map();
-    (s?.habits||[]).forEach(h=>{
-      const target = h?.targetDays ? Math.max(1, h.targetDays) : null;
-      const set = new Set(Array.isArray(h?.days) ? h.days.slice() : []);
-      map.set(h.id, {target, set, count: set.size, name: h.name||''});
-    });
-    return map;
-  }
-  function masteredCountFromSnapshot(snap){
-    let c=0;
-    snap.forEach(v=>{ if(v.target && v.count >= v.target) c++; });
-    return c;
-  }
-
-  // Modal opener fallback
-  function openFullscreen(msg){
-    if(typeof openAchvFullscreen==='function'){ openAchvFullscreen(msg); return; }
-    const bd = document.getElementById('achv-backdrop');
-    const t  = document.getElementById('achv-text');
-    if(bd && t){
-      t.textContent = msg || 'Вы разблокировали награду.';
-      bd.classList.add('show'); document.body.classList.add('modal-open');
+document.addEventListener('DOMContentLoaded', function(){
+  var chip = document.getElementById('series-chip-gold');
+  if(chip){
+    var hasText = !!chip.querySelector('.series-text');
+    if(!hasText){
+      chip.innerHTML = '<span class="flame">🔥</span><span class="series-text">Серия 0 дней</span>';
     }
   }
-
-  // On click "Сегодня" -> use per-habit delta detection
-  document.addEventListener('DOMContentLoaded', function(){
-    document.addEventListener('click', function(e){
-      const todayBtn = e.target.closest('.today-check,.check');
-      const nav = e.target.closest('.nav-btn');
-
-      let prevSnap = null;
-      let prevBadges = null;
-      let prevStreakBadges = null;
-      let prevStreakVal = null;
-
-      if(todayBtn){
-        const sPrev = getState() || {};
-        ensureProfileFields(sPrev);
-        prevSnap = snapshotHabits(sPrev);
-        prevBadges = new Set((sPrev.profile.badges?.mastered)||[]);
-        prevStreakBadges = new Set((sPrev.profile.badges?.streak)||[]);
-        prevStreakVal = sPrev.profile.streak||0;
-      }
-
-      setTimeout(function(){
-        try{
-          const sNext = getState() || {};
-          ensureProfileFields(sNext);
-
-          const nextSnap = snapshotHabits(sNext);
-          const today = isoDate(new Date());
-
-          // ===== Exact last-day completion detection =====
-          if(prevSnap){
-            const newlyCompleted = [];
-            nextSnap.forEach((next, id)=>{
-              const prev = prevSnap.get(id);
-              if(!prev) return;
-              // must be a +1 change and today must be newly present
-              const delta = next.count - prev.count;
-              const todayWas = prev.set.has(today);
-              const todayNow = next.set.has(today);
-              const isIncrementToday = delta === 1 && !todayWas && todayNow;
-              const hitsTargetNow = !!next.target && next.count === next.target;
-              if(isIncrementToday && hitsTargetNow){
-                newlyCompleted.push({id, name: next.name, target: next.target});
-              }
-            });
-
-            if(newlyCompleted.length){
-              // Update mastered threshold badges based on total mastered count after change
-              const prevCount = masteredCountFromSnapshot(prevSnap);
-              const nextCount = masteredCountFromSnapshot(nextSnap);
-              if(nextCount > prevCount){
-                // add highest crossed threshold
-                let add = 0;
-                for(const step of MASTERED_STEPS){ if(nextCount >= step && !prevBadges.has(step)) add = step; }
-                if(add){
-                  const setM = new Set(sNext.profile.badges.mastered||[]); setM.add(add);
-                  sNext.profile.badges.mastered = Array.from(setM).sort((a,b)=>a-b);
-                  setState(sNext);
-                  if(typeof window.renderBadges==='function') window.renderBadges(sNext);
-                }
-              }
-              // Show modal once (use the last completed habit)
-              const last = newlyCompleted[newlyCompleted.length-1];
-              openFullscreen('Поздравляем! Привычка завершена 🎉');
-            }
-          }
-
-          // ===== Streak thresholds (use value already maintained by app or our later patches) =====
-          const curStreak = (sNext.profile.streak||0);
-          let toAddStreak = 0;
-          for(const n of STREAK_STEPS){ if(curStreak >= n && !prevStreakBadges?.has(n)) toAddStreak = n; }
-          if(toAddStreak){
-            const setS = new Set(sNext.profile.badges.streak||[]); setS.add(toAddStreak);
-            sNext.profile.badges.streak = Array.from(setS).sort((a,b)=>a-b);
-            setState(sNext);
-            if(typeof window.renderBadges==='function') window.renderBadges(sNext);
-            openFullscreen('Поздравляем! Новая серия: ' + toAddStreak + ' ' + decl(toAddStreak, ['день','дня','дней']));
-          }
-
-          // Keep chip text fresh if our helper exists
-          if(typeof window.refresh==='function') window.refresh();
-        }catch(_){}
-      }, todayBtn ? 140 : (nav ? 70 : 0));
-    }, {capture:true, passive:true});
-  });
-})();
+});
 </script>
-<!-- === /v10 === -->
 
 </body>
 </html>
