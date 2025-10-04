@@ -291,6 +291,20 @@ body.kb-open .chat{ height: auto !important; }
 body.kb-open main{ padding-bottom: 12px !important; }
 </style>
 
+
+<style>
+/* kbfix-2: ensure nav never overlays keyboard */
+body.kb-open nav.bottom{
+  position: fixed !important;
+  left: 0; right: 0;
+  /* push nav below the visible area by keyboard height (when available) */
+  bottom: calc(-1 * var(--kb, 0px)) !important;
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+}
+</style>
+
 </head>
 <body data-avatar-ready="1">
 <div class="app" role="application">
@@ -1820,6 +1834,46 @@ document.addEventListener('DOMContentLoaded', function(){
   document.addEventListener('focusout', function(e){
     if(isInput(e.target)){ setTimeout(updateKB, 50); setTimeout(updateKB, 250); }
   }, {passive:true});
+})();
+</script>
+
+
+<script>
+// boot-awards: recompute streak & awards on startup
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+  function getState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; } }
+  function setState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){} }
+  function isoDate(d){ const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return t.toISOString().slice(0,10); }
+  function computeStreakFromState(s){
+    try{
+      let streak = 0;
+      const d = new Date();
+      while(true){
+        const key = isoDate(d);
+        const anyDone = (s?.habits||[]).some(h => Array.isArray(h?.days) && h.days.includes(key));
+        if(anyDone){ streak++; d.setDate(d.getDate()-1); } else { break; }
+      }
+      return streak;
+    }catch(e){ return 0; }
+  }
+  try{
+    const s = getState() || {profile:{}, habits:[]};
+    s.profile = s.profile || {};
+    const newStreak = computeStreakFromState(s);
+    if(typeof newStreak === 'number' && newStreak >= 0){
+      s.profile.streak = newStreak;
+      setState(s);
+    }
+  }catch(e){}
+
+  // Trigger UI/badges re-render ASAP
+  try{
+    if(typeof window.renderAll === 'function'){ window.renderAll(); }
+    if(typeof window.renderProfile === 'function'){ window.renderProfile(); }
+    // Fallback notify
+    document.dispatchEvent(new CustomEvent('badges:refresh'));
+  }catch(e){}
 })();
 </script>
 
