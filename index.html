@@ -1,6 +1,88 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
+\1
+<!-- === MOBILE ADAPTATION === -->
+<meta name="theme-color" content="#0b0c0f">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  :root{
+    /* dynamic viewport height fallback for iOS */
+    --vh: 1vh;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* App container uses full screen height on phones */
+  @media (max-width: 600px) {
+    body{ background-attachment: fixed; }
+    .app{
+      max-width: 100%;
+      width: 100%;
+      height: calc(var(--vh, 1vh) * 100);
+      margin: 0;
+      border-radius: 0;
+    }
+    header{
+      padding-top: calc(14px + var(--safe-top));
+      padding-left: max(12px, var(--safe-left));
+      padding-right: max(12px, var(--safe-right));
+    }
+    main{
+      padding: 12px 12px 96px;
+    }
+    nav.bottom{
+      height: auto;
+      min-height: 66px;
+      padding-bottom: calc(12px + var(--safe-bottom));
+      padding-left: max(8px, var(--safe-left));
+      padding-right: max(8px, var(--safe-right));
+      gap: 14px;
+    }
+    .nav-btn{ font-size: 12px; }
+    .nav-btn svg{ width: 22px; height: 22px; }
+    .habit-card{ padding: 12px; border-radius: 16px; }
+    .habit-title{ gap: 10px; }
+    .color-dot{ width: 10px; height: 10px; border-radius: 4px; }
+    .today-task{ gap: 10px; }
+    .check{ width: 48px; height: 48px; } /* >=44px tap target */
+    button.icon-btn{ padding: 10px 12px; border-radius: 12px; }
+    input[type=text]{ padding: 12px; font-size: 16px; } /* avoid iOS zoom */
+    .chat-input{ padding: 12px; }
+    .messages{ padding: 8px; }
+    .bubble{ font-size: 15px; }
+    /* Calendar cells optimized for small screens */
+    .cal-grid{ gap: 6px; }
+    .cal-cell{ min-height: 44px; padding: 6px; }
+    .cal-cell .day{ font-size: 13px; }
+  }
+
+  /* Extra small phones */
+  @media (max-width: 360px) {
+    .cal-cell{ min-height: 40px; }
+    .check{ width: 44px; height: 44px; }
+    .habit-card{ padding: 10px; }
+    header h1{ font-size: 15px; }
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *{ animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  }
+</style>
+<script>
+  // 100dvh fix for iOS Safari: update --vh on resize/orientation
+  (function(){
+    function setVH(){
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', vh + 'px');
+    }
+    setVH();
+    window.addEventListener('resize', setVH, {passive:true});
+    window.addEventListener('orientationchange', setVH, {passive:true});
+  })();
+</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -132,6 +214,31 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
   opacity:1 !important;
 }
 </style>
+<style>
+/* === Completed tasks styling (fully completed by reaching targetDays) === */
+.habit-card.done-today, .habit-card.habit-done {
+  opacity: 0.6;
+  background: linear-gradient(180deg, rgba(89,227,145,0.08), rgba(0,0,0,0.05));
+  border: 1px solid rgba(89,227,145,0.15);
+  transition: all 0.3s ease;
+}
+.habit-card.done-today:hover, .habit-card.habit-done:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+</style>
+<style>
+/* === Completed cards: compact view + always show calendar === */
+.habit-done .today-task { display: none !important; }
+</style>
+<style>
+/* === Badges: enforce number/label lines === */
+.badge .value{ white-space: nowrap; display:block; }
+.badge .label{ display:block; }
+
+</style>
+<style>.color-dot{display:none!important}</style>
 </head>
 <body data-avatar-ready="1">
 <div class="app" role="application">
@@ -437,13 +544,18 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
     }
 
     let anyDoneToday = false;
-    state.habits.forEach(h=>{
+    function isCompleted(h){
+  return !!(h && typeof h.targetDays==='number' && Array.isArray(h.days) && h.days.length >= Math.max(1, h.targetDays));
+}
+const incomplete = state.habits.filter(h => !isCompleted(h));
+const complete   = state.habits.filter(h =>  isCompleted(h));
+// Render: incomplete first, then complete
+[...incomplete, ...complete].forEach(h=>{
       const {total, done, pct} = computeProgress(h);
       const card = document.createElement('div'); card.className='habit-card';
 
       // Title row
       const title = document.createElement('div'); title.className='habit-title';
-      const dot = document.createElement('div'); dot.className='color-dot'; dot.style.background = h.color || 'var(--accent)';
       const titleWrap = document.createElement('div'); titleWrap.style.flex='1';
       const nameEl = document.createElement('div'); nameEl.style.fontWeight='700'; nameEl.style.fontSize='16px'; nameEl.textContent = h.name;
       const durationEl = document.createElement('div'); durationEl.className='sub'; durationEl.textContent = `Срок: ${total} дн.`;
@@ -458,7 +570,7 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
       delBtn.style.marginLeft='8px';
       delBtn.addEventListener('click', ()=>{ if(confirm('Удалить привычку в корзину?')) deleteHabit(h.id); });
 
-      title.appendChild(dot); title.appendChild(titleWrap); title.appendChild(right); title.appendChild(delBtn);
+      title.appendChild(titleWrap); title.appendChild(right); title.appendChild(delBtn);
       card.appendChild(title);
 
       // Progress
@@ -474,7 +586,12 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
       const todayRow = document.createElement('div'); todayRow.className='today-task';
       const todayKey = isoDate(new Date());
       const doneToday = h.days.includes(todayKey); if(doneToday) anyDoneToday = true;
-      const check = document.createElement('div'); check.className='check today-check' + (doneToday ? ' done' : '');
+      
+      if (typeof isCompleted==='function' ? isCompleted(h) : (h && h.targetDays && Array.isArray(h.days) && h.days.length >= Math.max(1, h.targetDays))) {
+        card.classList.add('done-today');
+        card.classList.add('habit-done');
+      }
+const check = document.createElement('div'); check.className='check today-check' + (doneToday ? ' done' : '');
       check.textContent = '✔';
       check.addEventListener('click', ()=>{
         if(h.days.includes(todayKey)){ h.days = h.days.filter(d=>d!==todayKey); } else { h.days.push(todayKey); }
@@ -503,8 +620,7 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
         cal.classList.toggle('hidden');
         if(!calRendered){ renderCalendar(h, cal); calRendered = true; }
       });
-
-      listRoot.appendChild(card);
+listRoot.appendChild(card);
     });
 
     setNavBadge(anyDoneToday);
@@ -883,7 +999,7 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
   function badgeSVG(type, n){
     if(type==='streak'){
       return `
-      <svg width="64" height="64" viewBox="0 0 64 64">
+      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stop-color="#ffd166"/>
@@ -899,7 +1015,7 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
       </svg>`;
     } else {
       return `
-      <svg width="64" height="64" viewBox="0 0 64 64">
+      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stop-color="#ffd166"/>
@@ -1005,7 +1121,7 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
     function createBadge(type, n, unlocked){
       const d = document.createElement('div');
       d.className = 'badge' + (unlocked ? ' unlocked' : ' locked');
-      d.innerHTML = `<div class="aura"></div>${badgeSVG(type, n)}<div class="label">${type==='streak'?'серия':'привычки'}</div><div class="value">${type==='streak'? n+' дней' : n}</div>`;
+      d.innerHTML = `<div class="aura"></div>${badgeSVG(type, n)}<div class="label">${type==='streak'?'серия':'привычки'}</div><div class="value">${type==='streak'? n : n}</div>`;
       return d;
     }
 
@@ -1366,6 +1482,247 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 </script>
+
+
+<!-- === v13: Consolidated Rewards + Streak + Congrats (self-contained) === -->
+<style>
+  /* Modal (ensures present and topmost) */
+  .achv-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.60);display:none;align-items:center;justify-content:center;z-index:2147483647;backdrop-filter:blur(3px)}
+  .achv-backdrop.show{display:flex}
+  body.modal-open{overflow:hidden}
+  .achv-modal{width:min(92vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.30));border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px 16px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55);animation:achv-pop .45s ease both}
+  @keyframes achv-pop{0%{transform:scale(.86);opacity:0}60%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
+  .achv-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .achv-icon{font-size:22px;line-height:1;background:radial-gradient(80% 140% at 20% 0%,#ffef9a,#ffd166 50%,#f7b733 80%);padding:8px;border-radius:14px;border:1px solid rgba(255,215,120,.85);box-shadow:0 8px 22px rgba(247,183,51,.35),inset 0 1px 0 rgba(255,255,255,.45)}
+  .achv-title{font-weight:900;font-size:16px}
+  .achv-body{color:var(--muted);font-size:14px;margin-bottom:12px}
+  .achv-actions{display:flex;gap:8px;justify-content:flex-end}
+  .btn{padding:10px 12px;border-radius:12px;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:var(--panel);color:#e6eef3}
+  .btn.primary{background:linear-gradient(90deg,#ffd166,#f7b733);color:#1a1400;font-weight:800;border-color:rgba(255,215,120,.85);box-shadow:0 10px 20px rgba(247,183,51,.35)}
+  /* Chip visibility */
+  #profile-streak{display:none!important;height:0!important;overflow:hidden!important}
+  .series-chip-gold{display:inline-flex!important;align-items:center!important;gap:8px!important;padding:8px 12px!important;border-radius:999px;font-weight:800;font-size:13px;letter-spacing:.2px;color:#1a1400;background:radial-gradient(80% 140% at 20% 0%,#ffef9a,#ffd166 50%,#f7b733 80%);border:1px solid rgba(255,215,120,.85);box-shadow:0 6px 22px rgba(247,183,51,.35),inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 8px rgba(179,112,0,.25);white-space:nowrap}
+  .series-chip-gold .series-text{display:inline!important;visibility:visible!important;opacity:1!important;color:#1a1400!important;font-weight:800}
+</style>
+
+<!-- Ensure modal exists -->
+<div class="achv-backdrop" id="achv-backdrop" aria-hidden="true" style="display:none">
+  <div class="achv-modal" role="dialog" aria-modal="true" aria-labelledby="achv-title">
+    <div class="achv-header">
+      <div class="achv-icon">🏆</div>
+      <div class="achv-title" id="achv-title">Поздравляем! Новое достижение</div>
+    </div>
+    <div class="achv-body" id="achv-text">Вы разблокировали награду.</div>
+    <div class="achv-actions">
+      <button class="btn" id="achv-close">Закрыть</button>
+      <button class="btn primary" id="achv-ok">Класс!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY='habit_traker_demo_v3';
+  const LOG_KEY=STORAGE_KEY+'_achvlog';
+  const STREAK_STEPS=[7,14,21,30,45,60,75,90,100,120];
+  const MASTERED_STEPS=[1,2,3,4,5];
+
+  /* ==== utils ==== */
+  function getState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');}catch(e){return null;}}
+  function setState(s){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}catch(e){}}
+  function getLog(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'{"streak":{},"mastered":{}}');}catch(e){return{streak:{},mastered:{}};}}
+  function setLog(l){try{localStorage.setItem(LOG_KEY,JSON.stringify(l));}catch(e){}}
+  function isoDate(d){const t=new Date(d.getFullYear(),d.getMonth(),d.getDate());return t.toISOString().slice(0,10);}
+  function decl(n,f){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return f[2];if(n1>1&&n1<5)return f[1];if(n1==1)return f[0];return f[2];}
+  function ensureFields(s){s.profile=s.profile||{name:'Гость',avatar:'',streak:0};s.profile.badges=s.profile.badges||{streak:[],mastered:[]};}
+  function snapshotHabits(s){const m=new Map();(s?.habits||[]).forEach(h=>{const t=h?.targetDays?Math.max(1,h.targetDays):null;const set=new Set(Array.isArray(h?.days)?h.days.slice():[]);m.set(h.id,{target:t,set,count:set.size});});return m;}
+  function masteredCount(snap){let c=0;snap.forEach(v=>{if(v.target&&v.count>=v.target)c++;});return c;}
+  function computeStreakFromState(s){if(!s||!Array.isArray(s.habits)||s.habits.length===0)return 0;let streak=0;const d=new Date();while(true){const key=isoDate(d);const any=s.habits.some(h=>Array.isArray(h.days)&&h.days.includes(key));if(any){streak++;d.setDate(d.getDate()-1);}else{break;}}return streak;}
+
+  /* ==== modal ==== */
+  function openModal(m){const b=document.getElementById('achv-backdrop'),t=document.getElementById('achv-text');if(!b||!t)return;t.textContent=m||'Вы разблокировали награду.';b.style.display='flex';b.classList.add('show');document.body.classList.add('modal-open');}
+  function closeModal(){const b=document.getElementById('achv-backdrop');if(!b)return;b.classList.remove('show');b.style.display='none';document.body.classList.remove('modal-open');}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  document.getElementById('achv-ok')?.addEventListener('click',closeModal,{passive:true});
+  document.getElementById('achv-close')?.addEventListener('click',closeModal,{passive:true});
+  document.getElementById('achv-backdrop')?.addEventListener('click',e=>{if(e.target.id==='achv-backdrop')closeModal();},{passive:true});
+
+  /* ==== chip ==== */
+  function ensureChip(){const p=document.getElementById('view-profile');if(!p)return;const name=p.querySelector('.name');let holder=document.getElementById('series-chip-holder');if(!holder){holder=document.createElement('div');holder.id='series-chip-holder';holder.className='series-chip-place';if(name&&name.parentElement)name.parentElement.after(holder);else p.prepend(holder);}let chip=document.getElementById('series-chip-gold');if(!chip){chip=document.createElement('span');chip.id='series-chip-gold';chip.className='series-chip-gold';chip.innerHTML='<span class="flame">🔥</span><span class="series-text">Серия 0 дней</span>';holder.innerHTML='';holder.appendChild(chip);}p.querySelectorAll('#streak-chip-el').forEach(n=>n.remove());holder.querySelectorAll('span').forEach(n=>{if(n.id!=='series-chip-gold')n.remove();});}
+  function updateChip(){const s=getState()||{};ensureFields(s);const chip=document.getElementById('series-chip-gold');if(!chip)return;const v=s.profile.streak||0;const span=chip.querySelector('.series-text');if(span)span.textContent='Серия '+v+' '+decl(v,['день','дня','дней']);}
+
+  /* ==== medals render fallback (if window.renderBadges missing) ==== */
+  function maybeRenderMedals(s){const box=document.getElementById('medals');if(!box) return; if(typeof window.renderBadges==='function'){try{window.renderBadges(s);}catch(_){}}}
+
+  /* ==== recompute streak once on load ==== */
+  document.addEventListener('DOMContentLoaded',function(){
+    // initial recompute & chip
+    let s=getState()||{}; ensureFields(s);
+    const v=computeStreakFromState(s); if(s.profile.streak!==v){s.profile.streak=v; setState(s);}
+    ensureChip(); updateChip();
+  });
+
+  /* ==== main click hook ==== */
+  document.addEventListener('click',function(e){
+    const today=!!e.target.closest('.today-check,.check');
+    const nav=e.target.closest('.nav-btn'); if(!today && !(nav&&nav.dataset&&nav.dataset.view==='view-profile')) return;
+
+    // snapshots before
+    const date=isoDate(new Date());
+    let prevSnap=null, prevMasteredBadges=null, prevStreakBadges=null;
+    if(today){const sp=getState()||{}; ensureFields(sp); prevSnap=snapshotHabits(sp); prevMasteredBadges=new Set((sp.profile.badges?.mastered)||[]); prevStreakBadges=new Set((sp.profile.badges?.streak)||[]);}
+
+    setTimeout(function(){
+      let s=getState()||{}; ensureFields(s);
+
+      // recompute streak (so it updates even if app didn't)
+      const v=computeStreakFromState(s); if(s.profile.streak!==v){s.profile.streak=v; setState(s);}
+      ensureChip(); updateChip();
+
+      if(today){
+        const nextSnap=snapshotHabits(s);
+        const log=getLog(); log.mastered[date]=log.mastered[date]||{}; log.streak[date]=log.streak[date]||{};
+
+        // exact last day completion
+        let doneId=null;
+        nextSnap.forEach((n,id)=>{
+          const p=prevSnap.get(id); if(!p) return;
+          const delta=n.count-p.count;
+          const todayWas=p.set.has(date), todayNow=n.set.has(date);
+          const hitsTargetNow=!!n.target && n.count===n.target;
+          if(delta===1 && !todayWas && todayNow && hitsTargetNow && !log.mastered[date][id]) doneId=id;
+        });
+        if(doneId){
+          log.mastered[date][doneId]=true; setLog(log);
+          // thresholds for mastered (1..5)
+          const pc=[...prevSnap.values()].filter(v=>v.target&&v.count>=v.target).length;
+          const nc=[...nextSnap.values()].filter(v=>v.target&&v.count>=v.target).length;
+          if(nc>pc){
+            let add=0; for(const step of [1,2,3,4,5]){ if(nc>=step && !prevMasteredBadges.has(step)) add=step; }
+            if(add){
+              const setM=new Set(s.profile.badges.mastered||[]); setM.add(add);
+              s.profile.badges.mastered=[...setM].sort((a,b)=>a-b); setState(s); maybeRenderMedals(s);
+            }
+          }
+          openModal('Поздравляем! Привычка завершена 🎉');
+        }
+
+        // streak thresholds
+        const cur=s.profile.streak||0;
+        let addS=0; for(const n of STREAK_STEPS){ if(cur>=n && !prevStreakBadges.has(n)) addS=n; }
+        if(addS && !getLog().streak[date]?.[addS]){
+          const log2=getLog(); log2.streak[date]=log2.streak[date]||{}; log2.streak[date][addS]=true; setLog(log2);
+          const setS=new Set(s.profile.badges.streak||[]); setS.add(addS);
+          s.profile.badges.streak=[...setS].sort((a,b)=>a-b); setState(s); maybeRenderMedals(s);
+          openModal('Поздравляем! Новая серия: '+addS+' '+decl(addS,['день','дня','дней']));
+        }
+      }
+
+      if(nav && nav.dataset && nav.dataset.view==='view-profile'){ ensureChip(); updateChip(); }
+    }, today?140:70);
+  },{capture:true,passive:true});
+})();
+</script>
+<!-- === /v13 === -->
+
+
+<!-- === PATCH: Yandex fix — remove streak before awards + inline editable name (no observers) === -->
+<style>
+  /* Hide streak chip in awards region */
+  #series-chip-holder, #series-chip-gold { display: none !important; }
+  /* Editable name: subtle affordance */
+  #view-profile .name, #profile-name { cursor: text; border-bottom: 1px dashed rgba(255,255,255,.25); }
+</style>
+<script>
+(function(){
+  try{
+    var STORAGE_KEY = 'habit_traker_demo_v3';
+    function getState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }catch(e){ return null; } }
+    function setState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){} }
+
+    function wireEditableName(){
+      var profile = document.getElementById('view-profile') || document.body;
+      if(!profile) return;
+      var nameEl = profile.querySelector('#profile-name') || profile.querySelector('.name');
+      if(!nameEl) return;
+
+      // hydrate from storage once
+      var s = getState() || {};
+      if(s && s.profile && s.profile.name){
+        nameEl.textContent = s.profile.name;
+      }
+
+      if(nameEl.getAttribute('data-editable') === '1') return;
+      nameEl.setAttribute('data-editable', '1');
+      nameEl.title = 'Нажмите, чтобы изменить имя';
+
+      nameEl.addEventListener('click', function onClick(){
+        if(nameEl.querySelector('input')) return;
+        var current = (nameEl.textContent || '').trim();
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.value = current;
+        input.maxLength = 40;
+        input.style.width = Math.max(140, (current.length||1)*10) + 'px';
+        input.style.font = 'inherit';
+        input.style.color = 'inherit';
+        input.style.background = 'transparent';
+        input.style.border = '1px solid rgba(255,255,255,.3)';
+        input.style.borderRadius = '8px';
+        input.style.padding = '4px 8px';
+        input.style.outline = 'none';
+
+        nameEl.innerHTML = '';
+        nameEl.appendChild(input);
+        input.focus(); input.select();
+
+        function commit(save){
+          var newName = (input.value || '').trim() || current;
+          nameEl.innerHTML = '';
+          nameEl.textContent = save ? newName : current;
+          if(save){
+            var st = getState() || {};
+            if(!st) st = {};
+            st.profile = st.profile || {};
+            st.profile.name = newName;
+            setState(st);
+            var mirrors = document.querySelectorAll('[data-profile-name]');
+            for(var i=0;i<mirrors.length;i++){ mirrors[i].textContent = newName; }
+          }
+          // re-arm click
+          setTimeout(function(){ nameEl.addEventListener('click', onClick, { once: true }); }, 0);
+        }
+
+        input.addEventListener('keydown', function(e){
+          if(e.key === 'Enter'){ commit(true); }
+          else if(e.key === 'Escape'){ commit(false); }
+        });
+        input.addEventListener('blur', function(){ commit(true); }, { once: true });
+
+        nameEl.removeEventListener('click', onClick);
+      }, { once: true });
+    }
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', wireEditableName);
+    } else {
+      wireEditableName();
+    }
+
+    // Also wire when user clicks nav to profile (without MutationObserver)
+    document.addEventListener('click', function(e){
+      var nav = e.target && e.target.closest ? e.target.closest('.nav-btn') : null;
+      if(nav && nav.dataset && nav.dataset.view === 'view-profile'){
+        setTimeout(wireEditableName, 60);
+      }
+    }, true);
+  }catch(e){
+    // swallow to avoid blocking load in strict browsers
+    try{ console.warn('Yandex patch error:', e); }catch(_){}
+  }
+})();
+</script>
+<!-- === /PATCH: Yandex fix === -->
 
 </body>
 </html>
