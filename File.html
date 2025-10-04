@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Трекер привычек — тёмная тема</title>
+  <style>
+    :root{
+      --bg:#0b0c0f;
+      --panel:#0f1114;
+      --muted:#9aa0a6;
+      --accent:#ff6b3d; /* оранжево-красный */
+      --accent-2:#ff3b30;
+      --glass: rgba(255,255,255,0.03);
+      --success:#59e391;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; background:linear-gradient(180deg,var(--bg),#071014); color:#e6eef3; display:flex; align-items:stretch; justify-content:center;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    .app{
+      width:100%; max-width:420px; height:880px; margin:24px; border-radius:20px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.2)); box-shadow:0 8px 30px rgba(0,0,0,0.7);
+      display:flex; flex-direction:column;
+    }
+    header{
+      padding:18px 18px 12px; display:flex; align-items:center; justify-content:space-between; gap:12px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.06));
+    }
+    header h1{font-size:16px; margin:0}
+    .top-actions{display:flex; gap:8px; align-items:center}
+    button.icon-btn{background:var(--glass); border:1px solid rgba(255,255,255,0.03); color:var(--muted); padding:8px 10px; border-radius:10px; display:inline-flex; gap:8px; align-items:center}
+    main{flex:1; padding:16px; overflow:auto}
+
+    /* Habit view */
+    .habit-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04)); padding:14px; border-radius:14px; border:1px solid rgba(255,255,255,0.03)}
+    .habit-title{display:flex; align-items:center; gap:12px}
+    .color-dot{width:12px; height:12px; border-radius:4px}
+    .progress{margin-top:12px}
+    .bar{height:12px; background:rgba(255,255,255,0.04); border-radius:8px; overflow:hidden}
+    .bar > i{display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); width:0%}
+    .sub{font-size:12px; color:var(--muted); margin-top:6px}
+
+    /* Calendar */
+    .calendar{margin-top:14px;}
+    .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px}
+    .cal-cell{background:rgba(255,255,255,0.02); border-radius:8px; min-height:56px; padding:6px; display:flex; flex-direction:column; justify-content:space-between}
+    .cal-cell .day{font-weight:600}
+    .cal-cell.done{background:linear-gradient(180deg, rgba(89,227,145,0.08), rgba(0,0,0,0.04)); border:1px solid rgba(89,227,145,0.12)}
+    .cal-head{display:flex; justify-content:space-between; align-items:center}
+
+    /* Today's task */
+    .today-task{margin-top:14px; display:flex; gap:10px; align-items:center}
+    .check{width:48px; height:48px; border-radius:12px; display:grid; place-items:center; cursor:pointer; border:1px solid rgba(255,255,255,0.03); background:var(--panel)}
+    .task-info{flex:1}
+    .complete{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff}
+
+    /* Chat */
+    .chat{display:flex; flex-direction:column; height:100%}
+    .messages{flex:1; overflow:auto; padding:8px; display:flex; flex-direction:column; gap:10px}
+    .msg{max-width:78%; padding:10px 12px; border-radius:12px}
+    .bot{align-self:flex-start; background:rgba(255,255,255,0.03)}
+    .user{align-self:flex-end; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#000}
+    .chat-input{display:flex; gap:8px; padding:12px}
+    input[type=text]{flex:1; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.04); background:transparent; color:inherit}
+
+    /* Profile */
+    .profile{display:flex; flex-direction:column; align-items:center; gap:12px}
+    .avatar{width:120px; height:120px; border-radius:50%; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06)); display:grid; place-items:center; overflow:hidden; border:2px solid rgba(255,255,255,0.03)}
+    .avatar img{width:100%; height:100%; object-fit:cover}
+    .name{font-weight:700; font-size:18px}
+    .streak{font-size:14px; color:var(--muted)}
+    .medals{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; justify-content:center}
+    .medal{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04)); border-radius:12px; padding:10px; width:120px; text-align:center; border:1px solid rgba(255,255,255,0.03)}
+    .medal small{display:block; color:var(--muted); font-size:12px; margin-top:8px}
+
+    /* Bottom nav */
+    nav.bottom{height:78px; display:flex; align-items:center; justify-content:space-around; gap:10px; padding:12px; border-top:1px solid rgba(255,255,255,0.02); background:linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.06))}
+    .nav-btn{display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--muted); cursor:pointer}
+    .nav-btn.active{color:var(--accent)}
+
+    /* small helpers */
+    .muted{color:var(--muted)}
+    .hidden{display:none}
+    .flex{display:flex}
+  </style>
+</head>
+<body>
+  <div class="app" role="application">
+    <header>
+      <h1 id="header-title">Привычки</h1>
+      <div class="top-actions">
+        <button class="icon-btn" id="open-calendar">Календарь</button>
+        <button class="icon-btn" id="reset-btn">Сброс</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- HABIT VIEW -->
+      <section id="view-habit" class="view">
+        <div class="habit-card">
+          <div class="habit-title">
+            <div style="flex:1">
+              <div style="display:flex; gap:8px; align-items:center">
+                <div class="color-dot" id="habit-color" style="background:var(--accent)"></div>
+                <div>
+                  <div id="habit-name" style="font-weight:700; font-size:16px">Нет привычки</div>
+                  <div class="sub" id="habit-duration">Срок: —</div>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:right">
+              <div class="sub">Прогресс</div>
+              <div class="sub" id="habit-percent">0%</div>
+            </div>
+          </div>
+
+          <div class="progress">
+            <div class="bar"><i id="progress-bar" style="width:0%"></i></div>
+            <div class="sub" id="progress-sub">0 / 0 выполнено</div>
+          </div>
+
+          <div class="progress">
+            <div class="sub">Оставшееся время</div>
+            <div class="bar"><i id="time-bar" style="width:0%"></i></div>
+            <div class="sub" id="time-sub">—</div>
+          </div>
+
+          <div class="calendar" id="habit-calendar">
+            <div class="cal-head">
+              <div class="muted" id="cal-month">—</div>
+              <div style="display:flex; gap:8px">
+                <button class="icon-btn" id="prev-month">◀</button>
+                <button class="icon-btn" id="next-month">▶</button>
+              </div>
+            </div>
+            <div class="cal-grid" id="cal-grid">
+              <!-- Days injected here -->
+            </div>
+          </div>
+
+          <div class="today-task">
+            <div class="check" id="today-check">✔</div>
+            <div class="task-info">
+              <div style="font-weight:700" id="today-task-title">Нет заданий</div>
+              <div class="sub" id="today-task-sub">—</div>
+            </div>
+            <div id="today-complete-text" class="muted">Не выполнено</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHAT VIEW -->
+      <section id="view-chat" class="view hidden">
+        <div class="chat" style="height:100%">
+          <div class="messages" id="messages"></div>
+          <div class="chat-input">
+            <input type="text" id="chat-input" placeholder="Напишите сообщение..." autocomplete="off" />
+            <button class="icon-btn" id="send-btn">Отправить</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROFILE VIEW -->
+      <section id="view-profile" class="view hidden">
+        <div class="profile">
+          <label class="avatar" id="avatar-label">
+            <img id="avatar-img" src="" alt="avatar" class="hidden" />
+            <div id="avatar-placeholder">👤</div>
+            <input type="file" id="avatar-input" accept="image/*" style="display:none" />
+          </label>
+          <div>
+            <div class="name" id="profile-name">Гость</div>
+            <div class="streak" id="profile-streak">Дэй-стрик: 0</div>
+          </div>
+
+          <h3 style="margin-top:16px">Награды</h3>
+          <div class="medals" id="medals">
+            <!-- medals injected -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <nav class="bottom">
+      <div class="nav-btn active" data-view="view-habit" id="nav-1">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="font-size:12px">Задания</div>
+      </div>
+      <div class="nav-btn" data-view="view-chat" id="nav-2">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="font-size:12px">Чат</div>
+      </div>
+      <div class="nav-btn" data-view="view-profile" id="nav-3">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.4"/></svg>
+        <div style="font-size:12px">Профиль</div>
+      </div>
+    </nav>
+  </div>
+
+  <script>
+    // Простая реализация: хранение в localStorage
+    const STORAGE_KEY = 'habit_traker_demo_v1';
+    const defaultState = {
+      profile: {name:'Гость', avatar: '', streak:0},
+      habits: [],
+      currentHabitId: null
+    };
+
+    function saveState(state){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function loadState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(JSON.stringify(defaultState)); }catch(e){return JSON.parse(JSON.stringify(defaultState));}}
+    let state = loadState();
+
+    // Elements
+    const views = document.querySelectorAll('.view');
+    const navBtns = document.querySelectorAll('.nav-btn');
+    const headerTitle = document.getElementById('header-title');
+
+    function showView(id){ views.forEach(v=> v.id===id? v.classList.remove('hidden') : v.classList.add('hidden')); navBtns.forEach(b=> b.dataset.view===id ? b.classList.add('active') : b.classList.remove('active')); }
+
+    navBtns.forEach(b=> b.addEventListener('click', ()=>{ showView(b.dataset.view); }));
+
+    // Utility for IDs
+    function uid(){ return Math.random().toString(36).slice(2,9) }
+
+    // Create demo habit if none
+    if(state.habits.length===0){
+      const h={id:uid(), name:'Утренняя зарядка', color: 'linear-gradient(90deg,var(--accent),var(--accent-2))', singleColor:'#ff6b3d', start: new Date().toISOString(), days:[], periodDays:30};
+      state.habits.push(h); state.currentHabitId = h.id; saveState(state);
+    }
+
+    // HABIT RENDER
+    const habitNameEl = document.getElementById('habit-name');
+    const habitColorEl = document.getElementById('habit-color');
+    const habitDurationEl = document.getElementById('habit-duration');
+    const progressBar = document.getElementById('progress-bar');
+    const progressSub = document.getElementById('progress-sub');
+    const habitPercentEl = document.getElementById('habit-percent');
+    const timeBar = document.getElementById('time-bar');
+    const timeSub = document.getElementById('time-sub');
+    const calGrid = document.getElementById('cal-grid');
+    const calMonth = document.getElementById('cal-month');
+    const todayCheck = document.getElementById('today-check');
+    const todayTaskTitle = document.getElementById('today-task-title');
+    const todayTaskSub = document.getElementById('today-task-sub');
+
+    let viewYear = (new Date()).getFullYear(), viewMonth = (new Date()).getMonth();
+
+    function getCurrentHabit(){ return state.habits.find(h=> h.id===state.currentHabitId) || state.habits[0]; }
+
+    function renderHabit(){
+      const h = getCurrentHabit();
+      habitNameEl.textContent = h.name;
+      habitColorEl.style.background = h.singleColor || 'var(--accent)';
+      const start = new Date(h.start);
+      const now = new Date();
+      const elapsed = Math.floor((now - start)/(1000*60*60*24));
+      habitDurationEl.textContent = `С начала: ${elapsed} дн. · Длительность: ${h.periodDays} дн.`;
+
+      // progress
+      const doneCount = h.days.length;
+      const total = h.periodDays;
+      const percent = Math.round((doneCount/total)*100);
+      progressBar.style.width = percent + '%';
+      habitPercentEl.textContent = percent + '%';
+      progressSub.textContent = `${doneCount} / ${total} выполнено`;
+
+      // time progress
+      const timePercent = Math.min(100, Math.round((elapsed/total)*100));
+      timeBar.style.width = timePercent + '%';
+      timeSub.textContent = `${elapsed} / ${total} дней`;
+
+      // calendar
+      renderCalendar(viewYear, viewMonth, h);
+
+      // today's task
+      const todayKey = isoDate(new Date());
+      const doneToday = h.days.includes(todayKey);
+      todayTaskTitle.textContent = h.name;
+      todayTaskSub.textContent = `Задание на ${todayKey}`;
+      if(doneToday){ todayCheck.classList.add('complete'); document.getElementById('today-complete-text').textContent='Выполнено'; }
+      else { todayCheck.classList.remove('complete'); document.getElementById('today-complete-text').textContent='Не выполнено'; }
+
+      // profile streak update
+      state.profile.streak = computeStreak(h);
+      document.getElementById('profile-streak').textContent = `Дэй-стрик: ${state.profile.streak}`;
+      saveState(state);
+      renderMedals();
+    }
+
+    function isoDate(d){ const y=d.getFullYear(); const m=('0'+(d.getMonth()+1)).slice(-2); const day=('0'+d.getDate()).slice(-2); return `${y}-${m}-${day}` }
+
+    function renderCalendar(y,m,h){
+      calGrid.innerHTML='';
+      const first = new Date(y,m,1); const last = new Date(y,m+1,0);
+      calMonth.textContent = first.toLocaleString('ru-RU', {month:'long', year:'numeric'});
+      // weekdays header
+      const wk=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+      wk.forEach(w=>{ const el=document.createElement('div'); el.className='cal-cell'; el.style.background='transparent'; el.style.minHeight='18px'; el.style.padding='6px 0'; el.style.display='flex'; el.style.alignItems='center'; el.style.justifyContent='center'; el.style.fontSize='12px'; el.textContent=w; calGrid.appendChild(el); });
+      // offset
+      let startDay = first.getDay(); startDay = startDay===0?7:startDay; // Make Monday=1
+      for(let i=1;i<startDay;i++){ const el=document.createElement('div'); el.className='cal-cell'; el.style.opacity=.1; calGrid.appendChild(el); }
+      for(let d=1; d<=last.getDate(); d++){
+        const dateStr = isoDate(new Date(y,m,d));
+        const el=document.createElement('div'); el.className='cal-cell';
+        const top=document.createElement('div'); top.className='day'; top.textContent=d; el.appendChild(top);
+        const dot=document.createElement('div'); dot.style.height='8px'; dot.style.width='8px'; dot.style.borderRadius='6px'; dot.style.marginTop='6px';
+        if(h.days.includes(dateStr)){
+          el.classList.add('done'); dot.style.background='var(--success)';
+        } else dot.style.background='transparent';
+        el.appendChild(dot);
+        el.addEventListener('click', ()=>{
+          toggleDay(h.id, dateStr);
+        });
+        calGrid.appendChild(el);
+      }
+    }
+
+    document.getElementById('prev-month').addEventListener('click', ()=>{ viewMonth--; if(viewMonth<0){viewMonth=11; viewYear--; } renderHabit(); });
+    document.getElementById('next-month').addEventListener('click', ()=>{ viewMonth++; if(viewMonth>11){viewMonth=0; viewYear++; } renderHabit(); });
+
+    function toggleDay(hid, day){ const habit = state.habits.find(x=>x.id===hid); if(!habit) return; const idx = habit.days.indexOf(day); if(idx>=0) habit.days.splice(idx,1); else habit.days.push(day); saveState(state); renderHabit(); }
+
+    todayCheck.addEventListener('click', ()=>{ const h=getCurrentHabit(); const today = isoDate(new Date()); if(h.days.includes(today)){ h.days = h.days.filter(d=>d!==today); } else { h.days.push(today); } saveState(state); renderHabit(); });
+
+    // Chat-bot (very simple dialog manager)
+    const messagesEl = document.getElementById('messages');
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    let botState = {step:0, draft:{}};
+    const botPrompts = [
+      'Привет! Давай создадим новую привычку. Какое название привычки?',
+      'Сколько дней длится привычка? (введите число, например 21)',
+      'Какой цвет оформления (введите hex или "red/orange"), например #ff6b3d',
+      'Хочешь добавить описание? (необязательно — напиши текст или «нет»)'
+    ];
+
+    function botSay(text){ const el=document.createElement('div'); el.className='msg bot'; el.textContent=text; messagesEl.appendChild(el); messagesEl.scrollTop = messagesEl.scrollHeight; }
+    function userSay(text){ const el=document.createElement('div'); el.className='msg user'; el.textContent=text; messagesEl.appendChild(el); messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+    function startBot(){ botState.step=0; botState.draft={}; messagesEl.innerHTML=''; botSay('Я — бот. Готов создавать привычку.'); setTimeout(()=> botSay(botPrompts[0]),300);
+    }
+
+    sendBtn.addEventListener('click', ()=>{ const v=chatInput.value.trim(); if(!v) return; userSay(v); chatInput.value=''; handleUserMessage(v); });
+    chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ sendBtn.click(); } });
+
+    function handleUserMessage(txt){ if(botState.step===0){ botState.draft.name = txt; botState.step++; setTimeout(()=>botSay(botPrompts[1]),400); }
+      else if(botState.step===1){ const n = parseInt(txt)||0; botState.draft.periodDays = Math.max(7, Math.min(365, n||21)); botState.step++; setTimeout(()=>botSay(botPrompts[2]),400); }
+      else if(botState.step===2){ botState.draft.color = txt || '#ff6b3d'; botState.step++; setTimeout(()=>botSay(botPrompts[3]),400); }
+      else if(botState.step===3){ botState.draft.desc = (txt.toLowerCase()==='нет')? '' : txt; finalizeHabit(botState.draft); botState.step=0; setTimeout(()=>botSay('Готово — привычка создана и добавлена в календарь.'),400); }
+    }
+
+    function finalizeHabit(draft){ const h = {id:uid(), name:draft.name || 'Новая привычка', color: `linear-gradient(90deg, ${draft.color}, ${draft.color})`, singleColor: draft.color, start: new Date().toISOString(), days:[], periodDays: draft.periodDays||21, desc: draft.desc || ''}; state.habits.push(h); state.currentHabitId = h.id; saveState(state); renderHabit(); }
+
+    // Profile
+    const avatarInput = document.getElementById('avatar-input');
+    const avatarImg = document.getElementById('avatar-img');
+    const avatarPlaceholder = document.getElementById('avatar-placeholder');
+
+    document.getElementById('avatar-label').addEventListener('click', ()=> avatarInput.click());
+    avatarInput.addEventListener('change', (e)=>{
+      const f = e.target.files[0]; if(!f) return; const reader = new FileReader(); reader.onload = ()=>{
+        state.profile.avatar = reader.result; document.getElementById('avatar-img').src = state.profile.avatar; document.getElementById('avatar-img').classList.remove('hidden'); avatarPlaceholder.classList.add('hidden'); saveState(state);
+      }; reader.readAsDataURL(f);
+    });
+
+    // Medals logic
+    function renderMedals(){ const container = document.getElementById('medals'); container.innerHTML='';
+      const streak = state.profile.streak || 0;
+      const medals = [ {id:'m1',title:'Начало',desc:'Создали первую привычку', cond: ()=> state.habits.length>=1}, {id:'m2',title:'3 дня',desc:'3 дня подряд', cond: ()=> streak>=3}, {id:'m3',title:'7 дней',desc:'7 дней подряд', cond: ()=> streak>=7}, {id:'m4',title:'30 дней',desc:'30 дней подряд', cond: ()=> streak>=30}];
+      medals.forEach(m=>{ const el=document.createElement('div'); el.className='medal'; const medalInner = document.createElement('div'); medalInner.innerHTML = `<div style="font-size:28px">🏅</div><div style="font-weight:700">${m.title}</div><small>${m.desc}</small>`; if(m.cond()) el.style.borderColor='rgba(255,107,61,0.6)'; else el.style.opacity=0.4; container.appendChild(el); });
+    }
+
+    function computeStreak(h){ if(!h || h.days.length===0) return 0; // compute consecutive days up to today
+      const sorted = h.days.slice().sort().reverse(); const today = isoDate(new Date()); let streak=0; let cursor = new Date();
+      for(;;){ const key = isoDate(cursor); if(h.days.includes(key)) { streak++; cursor.setDate(cursor.getDate()-1); } else break; }
+      return streak;
+    }
+
+    // Header calendar button toggles month view to current
+    document.getElementById('open-calendar').addEventListener('click', ()=>{ viewMonth = (new Date()).getMonth(); viewYear = (new Date()).getFullYear(); renderHabit(); });
+
+    // Reset button for demo
+    document.getElementById('reset-btn').addEventListener('click', ()=>{ if(confirm('Сбросить всё и создать демонстрационную привычку?')){ localStorage.removeItem(STORAGE_KEY); location.reload(); } });
+
+    // Initialize
+    startBot(); renderHabit();
+
+    // show initial view
+    showView('view-habit');
+
+    // small UX: open chat when creating habit from bot confirmation
+    messagesEl.addEventListener('click', ()=>{ /* noop for now */ });
+
+  </script>
+</body>
+</html>
