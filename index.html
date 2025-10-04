@@ -787,9 +787,1288 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
     init();
   }
 })();
+
 </script>
 <style>.bottom *{pointer-events:auto !important;}</style>
 
   <input type="file" id="avatarFile" accept="image/*" capture="user" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" aria-hidden="true">
+
+<!-- === Gamified Badges Injection: start === -->
+<style>
+  /* Badges: gamified look */
+  .badges-wrap{width:100%;}
+  .badge{
+    width:104px; height:120px;
+    background: radial-gradient(120px 120px at 50% 0%, rgba(255,255,255,0.10), rgba(0,0,0,0.12));
+    border:1px solid rgba(255,255,255,0.06);
+    border-radius:16px; padding:10px 10px 12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+    position:relative;
+    transition: transform .18s ease, box-shadow .18s ease, filter .18s ease, opacity .18s ease;
+  }
+  .badge.locked{filter: grayscale(100%) brightness(0.8); opacity:0.55;}
+  .badge.unlocked{animation: pop-in .5s ease both;}
+  .badge .label{font-size:11px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:.03em}
+  .badge .value{font-weight:800; font-size:18px; line-height:1.1}
+  .badge .aura{
+    position:absolute; inset:-2px; border-radius:18px; pointer-events:none;
+    background: conic-gradient(from 0deg, rgba(255,107,61,0.0), rgba(255,59,48,0.25), rgba(255,255,255,0.0));
+    filter: blur(14px); opacity:0; transition: opacity .18s ease;
+  }
+  .badge.unlocked .aura{opacity:1;}
+  @keyframes pop-in{ 0%{transform:scale(.7); opacity:0} 60%{transform:scale(1.08); opacity:1} 100%{transform:scale(1)} }
+  .badge svg{display:block}
+  .medals{gap:12px !important}
+  .streak-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 10px; border-radius:999px; font-weight:700;
+    background:linear-gradient(90deg, #ff9a5a, #ff3b30);
+    color:#0b0c0f; box-shadow:0 6px 20px rgba(255,90,48,0.35);
+  }
+  .toast{
+    position:fixed; left:50%; bottom:100px; transform:translateX(-50%);
+    background:linear-gradient(180deg, rgba(40,40,40,.9), rgba(0,0,0,.9));
+    color:#fff; padding:14px 16px; border-radius:14px; border:1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.45); z-index:99999; display:none; white-space:nowrap;
+  }
+  .toast.show{display:block; animation: pop-in .5s ease both;}
+  .sparkles{position:fixed; inset:0; pointer-events:none; z-index:99998}
+  .sparkles i{
+    position:absolute; font-style:normal; opacity:0; animation: sparkle-fall 900ms ease-out forwards;
+  }
+  @keyframes sparkle-fall{
+    0%{transform:translateY(0) rotate(0deg) scale(.8); opacity:0}
+    15%{opacity:1}
+    100%{transform:translateY(120px) rotate(120deg) scale(1); opacity:0}
+  }
+</style>
+<script>
+(function(){
+  const BADGES = {
+    streak:[7,14,21,30,45,60,75,90,100,120],
+    mastered:[1,2,3,4,5]
+  };
+
+  // Create flame/trophy SVGs (gamified style)
+  function badgeSVG(type, n){
+    if(type==='streak'){
+      return `
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ffd166"/>
+            <stop offset="60%" stop-color="#ff6b3d"/>
+            <stop offset="100%" stop-color="#ff3b30"/>
+          </linearGradient>
+        </defs>
+        <g filter="url(#none)">
+          <path d="M32 6 C38 14, 46 20, 46 29 c0 10-8 18-14 21-6-3-14-11-14-21 0-9 8-15 14-23z" fill="url(#g1)"></path>
+          <circle cx="32" cy="32" r="10" fill="rgba(0,0,0,0.15)"></circle>
+          <text x="32" y="36" text-anchor="middle" font-size="14" font-weight="800" fill="#0b0c0f">${n}</text>
+        </g>
+      </svg>`;
+    } else {
+      return `
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <defs>
+          <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ffd166"/>
+            <stop offset="60%" stop-color="#59e391"/>
+            <stop offset="100%" stop-color="#4da3ff"/>
+          </linearGradient>
+        </defs>
+        <g>
+          <path d="M16 12h32l-3 16a17 17 0 0 1-26 0l-3-16z" fill="url(#g2)"></path>
+          <rect x="26" y="40" width="12" height="6" rx="2" fill="#ffd166"></rect>
+          <rect x="22" y="48" width="20" height="6" rx="3" fill="#ffd166"></rect>
+          <text x="32" y="36" text-anchor="middle" font-size="14" font-weight="800" fill="#0b0c0f">${n}</text>
+        </g>
+      </svg>`;
+    }
+  }
+
+  function ensureBadgeState(){
+    try{
+      const raw = localStorage.getItem('habit_traker_demo_v3');
+      if(!raw) return null;
+      const s = JSON.parse(raw);
+      if(!s.profile) s.profile = {name:"Гость", avatar:"", streak:0};
+      if(!s.profile.badges) s.profile.badges = { streak:[], mastered:[] };
+      localStorage.setItem('habit_traker_demo_v3', JSON.stringify(s));
+      return s;
+    }catch(e){ return null; }
+  }
+
+  function computeMasteredCount(state){
+    let c = 0;
+    (state.habits||[]).forEach(h=>{
+      if(h && h.targetDays && Array.isArray(h.days)){
+        if(h.days.length >= Math.max(1, h.targetDays)) c++;
+      }
+    });
+    return c;
+  }
+
+  // Simple sparkles & toast
+  function showToast(msg){
+    let el = document.getElementById('toast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'toast'; el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(()=>el.classList.remove('show'), 1600);
+  }
+
+  function sparkles(x, y){
+    let wrap = document.getElementById('sparkles');
+    if(!wrap){
+      wrap = document.createElement('div'); wrap.id='sparkles'; wrap.className='sparkles';
+      document.body.appendChild(wrap);
+    }
+    const glyphs = ['✨','⭐','🔥','🏆','💥','🎉'];
+    for(let i=0;i<16;i++){
+      const iEl = document.createElement('i');
+      iEl.textContent = glyphs[Math.floor(Math.random()*glyphs.length)];
+      iEl.style.left = (x + (Math.random()*120-60)) + 'px';
+      iEl.style.top  = (y + (Math.random()*20-10)) + 'px';
+      iEl.style.fontSize = (14 + Math.random()*10) + 'px';
+      wrap.appendChild(iEl);
+      setTimeout(()=> iEl.remove(), 950);
+    }
+  }
+
+  // Render or update medals list
+  function renderBadges(state){
+    const box = document.getElementById('medals');
+    if(!box) return;
+
+    // Make sure badge arrays exist
+    state.profile = state.profile || {};
+    state.profile.badges = state.profile.badges || {streak:[], mastered:[]};
+
+    const nowStreak = (state.profile && state.profile.streak) || 0;
+    const masteredCount = computeMasteredCount(state);
+
+    const prevStreakEarned = new Set(state.profile.badges.streak || []);
+    const prevMasteredEarned = new Set(state.profile.badges.mastered || []);
+
+    const newEarned = []; // for animations/toasts
+
+    // Build fragment
+    const frag = document.createDocumentFragment();
+
+    // Streak chip next to profile streak
+    const streakEl = document.getElementById('profile-streak');
+    if(streakEl && !document.getElementById('streak-chip-el')){
+      const chip = document.createElement('span');
+      chip.id = 'streak-chip-el';
+      chip.className = 'streak-chip';
+      chip.innerHTML = '🔥 Серия';
+      chip.style.marginLeft = '8px';
+      streakEl.after(chip);
+    }
+
+    // Add all badges (locked or unlocked)
+    function createBadge(type, n, unlocked){
+      const d = document.createElement('div');
+      d.className = 'badge' + (unlocked ? ' unlocked' : ' locked');
+      d.innerHTML = `<div class="aura"></div>${badgeSVG(type, n)}<div class="label">${type==='streak'?'серия':'привычки'}</div><div class="value">${type==='streak'? n+' дней' : n}</div>`;
+      return d;
+    }
+
+    // Evaluate unlocks & build UI
+    BADGES.streak.forEach(n=>{
+      const unlocked = nowStreak >= n;
+      const el = createBadge('streak', n, unlocked);
+      frag.appendChild(el);
+      if(unlocked && !prevStreakEarned.has(n)){
+        newEarned.push({type:'streak', n, node:el});
+        prevStreakEarned.add(n);
+      }
+    });
+
+    BADGES.mastered.forEach(n=>{
+      const unlocked = masteredCount >= n;
+      const el = createBadge('mastered', n, unlocked);
+      frag.appendChild(el);
+      if(unlocked && !prevMasteredEarned.has(n)){
+        newEarned.push({type:'mastered', n, node:el});
+        prevMasteredEarned.add(n);
+      }
+    });
+
+    box.innerHTML='';
+    box.appendChild(frag);
+
+    // Persist earned
+    state.profile.badges.streak   = Array.from(prevStreakEarned).sort((a,b)=>a-b);
+    state.profile.badges.mastered = Array.from(prevMasteredEarned).sort((a,b)=>a-b);
+    try{ localStorage.setItem('habit_traker_demo_v3', JSON.stringify(state)); }catch(e){}
+
+    // Animate newly earned
+    if(newEarned.length){
+      const rect = box.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + 20;
+      sparkles(cx, cy);
+      const {type, n} = newEarned[newEarned.length-1];
+      showToast(type==='streak' ? `Новая серия: ${n} дней!` : `Новая награда: ${n} привыч${n===1?'ка':'ки'}`);
+      // Emphasize last unlocked badge
+      const b = newEarned[newEarned.length-1].node;
+      b.style.boxShadow = '0 10px 30px rgba(255,107,61,.45), inset 0 1px 0 rgba(255,255,255,.08)';
+      setTimeout(()=> b.style.boxShadow = '', 1200);
+    }
+  }
+
+  // Hook into existing renderProfile (decorate)
+  const origRenderProfile = window.renderProfile;
+  window.renderProfile = function(){
+    try{
+      origRenderProfile && origRenderProfile();
+    }catch(e){}
+    const s = ensureBadgeState();
+    if(s) renderBadges(s);
+  };
+
+  // Also re-render badges after any list re-render (progress changes)
+  const origRenderAll = window.renderAll;
+  window.renderAll = function(){
+    origRenderAll && origRenderAll();
+    const s = ensureBadgeState();
+    if(s) renderBadges(s);
+  };
+
+  // First-time ensure & render (in case profile renders before we patch)
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const s = ensureBadgeState();
+    if(s) renderBadges(s);
+  });
+})();
+</script>
+<!-- === Gamified Badges Injection: end === -->
+
+
+<script>
+(function(){
+  // Robust re-check loop to avoid missing unlocks
+  function getState(){
+    try{ return JSON.parse(localStorage.getItem('habit_traker_demo_v3')||'null'); }catch(e){ return null; }
+  }
+  function currentSnapshot(){
+    const s = getState();
+    if(!s) return {streak:0, mastered:0, badges:{streak:[], mastered:[]}};
+    const streak = (s.profile && s.profile.streak) || 0;
+    const mastered = (function(){
+      let c=0; (s.habits||[]).forEach(h=>{ if(h && h.targetDays && Array.isArray(h.days) && h.days.length >= Math.max(1, h.targetDays)) c++; });
+      return c;
+    })();
+    const b = (s.profile && s.profile.badges) || {streak:[], mastered:[]};
+    return {streak, mastered, badges:b};
+  }
+
+  let last = currentSnapshot();
+
+  function maybeUpdate(){
+    const now = currentSnapshot();
+    if(now.streak !== last.streak || now.mastered !== last.mastered ||
+       JSON.stringify(now.badges) !== JSON.stringify(last.badges)){
+      last = now;
+      if(window.renderBadges){
+        try{ window.renderBadges(getState()); }catch(e){}
+      } else {
+        // Fallback: dispatch event to our badge script if it listens
+        document.dispatchEvent(new CustomEvent('badges:refresh'));
+      }
+    }
+  }
+
+  // Listen to clicks on day checkboxes to update quickly
+  document.addEventListener('click', (e)=>{
+    const t = e.target.closest('.today-check,.check');
+    if(t){ setTimeout(maybeUpdate, 80); }
+  }, {capture:true, passive:true});
+
+  // Also listen to storage changes (other tabs)
+  window.addEventListener('storage', (e)=>{
+    if(e.key === 'habit_traker_demo_v3'){ maybeUpdate(); }
+  });
+
+  // Periodic sanity check
+  setInterval(maybeUpdate, 1000);
+})();
+</script>
+
+
+<script>
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+
+  function getState(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
+  }
+
+  function localizeStreak(){
+    const el = document.getElementById('profile-streak');
+    if(!el) return;
+    // Extract number from any text and rebuild as "Серия: N"
+    const m = (el.textContent||'').match(/(\d+)/);
+    const n = m ? m[1] : '0';
+    el.textContent = 'Серия: ' + n;
+
+    // Ensure single chip
+    const existing = document.querySelectorAll('#streak-chip-el');
+    existing.forEach((node, idx) => { if(idx>0) node.remove(); });
+
+    let chip = document.getElementById('streak-chip-el');
+    if(!chip){
+      chip = document.createElement('span');
+      chip.id = 'streak-chip-el';
+      chip.className = 'streak-chip';
+      chip.textContent = '🔥 Серия';
+      chip.style.marginLeft = '8px';
+      el.after(chip);
+    }
+  }
+
+  // Safe global refresh used by multiple places
+  window.refresh = function(){
+    try{
+      localizeStreak();
+      const s = getState();
+      if(s && typeof window.renderBadges === 'function'){
+        window.renderBadges(s);
+      }
+    }catch(e){ /* noop */ }
+  };
+
+  // Try to expose renderBadges if it exists inside the previous IIFE via override wrappers already set in v2
+  // We also schedule periodic refreshes and on-click updates.
+  document.addEventListener('DOMContentLoaded', function(){
+    window.refresh();
+    document.addEventListener('click', function(e){
+      const nav = e.target.closest('.nav-btn');
+      if(nav && nav.dataset && nav.dataset.view === 'view-profile'){
+        setTimeout(window.refresh, 60);
+      }
+      if(e.target.closest('.today-check,.check')){
+        setTimeout(window.refresh, 80);
+      }
+    }, {capture:true, passive:true});
+
+    // Fallback periodic refresh
+    setInterval(window.refresh, 1200);
+  });
+})();
+</script>
+
+
+<!-- === Final: Gold Gamified Series Chip === -->
+<style>
+  /* Hide the original Streak/Серия label line beneath avatar */
+  #profile-streak{ display:none !important; }
+
+  /* Gold gamified chip */
+  .series-chip-gold{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 12px;
+    border-radius:999px;
+    font-weight:800; font-size:13px; letter-spacing:.2px;
+    color:#1a1400;
+    background: radial-gradient(80% 140% at 20% 0%, #ffef9a, #ffd166 50%, #f7b733 80%) ;
+    border:1px solid rgba(255,215,120,.8);
+    box-shadow:
+      0 6px 22px rgba(247,183,51,.45),
+      inset 0 1px 0 rgba(255,255,255,.45),
+      inset 0 -2px 8px rgba(179,112,0,.25);
+    position:relative;
+  }
+  .series-chip-gold:after{
+    content:"";
+    position:absolute; inset:-2px;
+    border-radius:999px; pointer-events:none;
+    background: conic-gradient(from 0deg, rgba(255,255,255,.0), rgba(255,255,255,.22), rgba(255,255,255,.0));
+    filter: blur(10px); opacity:.65;
+    animation: chip-glow 2.4s linear infinite;
+  }
+  @keyframes chip-glow{
+    0%{ transform: rotate(0deg) }
+    100%{ transform: rotate(360deg) }
+  }
+  .series-chip-gold .flame{
+    font-size:16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+  }
+  .series-chip-place{ margin-top:4px; }
+</style>
+<script>
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+
+  function getState(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
+  }
+
+  function ensureSeriesChip(){
+    const profile = document.getElementById('view-profile');
+    if(!profile) return;
+
+    // Place chip right where medals title is (under avatar/name block)
+    // We'll try to insert near the name container
+    const nameWrap = profile.querySelector('.name')?.parentElement || profile;
+    let holder = document.getElementById('series-chip-holder');
+    if(!holder){
+      holder = document.createElement('div');
+      holder.id = 'series-chip-holder';
+      holder.className = 'series-chip-place';
+      nameWrap.after(holder);
+    }
+
+    let chip = document.getElementById('series-chip-gold');
+    if(!chip){
+      chip = document.createElement('span');
+      chip.id = 'series-chip-gold';
+      chip.className = 'series-chip-gold';
+      chip.innerHTML = `<span class="flame">🔥</span><span class="txt">Серия 0 дней</span>`;
+      holder.innerHTML = '';
+      holder.appendChild(chip);
+    }
+    return chip;
+  }
+
+  function updateSeriesChip(){
+    const s = getState();
+    const chip = ensureSeriesChip();
+    if(!chip) return;
+    const streak = (s && s.profile && typeof s.profile.streak==='number') ? s.profile.streak : 0;
+    const txt = chip.querySelector('.txt');
+    if(txt){
+      txt.textContent = 'Серия ' + streak + ' ' + decl(streak, ['день','дня','дней']);
+    }
+  }
+
+  function decl(n, forms){
+    n = Math.abs(n) % 100; var n1 = n % 10;
+    if (n>10 && n<20) return forms[2];
+    if (n1>1 && n1<5) return forms[1];
+    if (n1==1) return forms[0];
+    return forms[2];
+  }
+
+  // Public refresh (kept if earlier code uses it)
+  window.refresh = function(){
+    try{ updateSeriesChip(); if(typeof window.renderBadges==='function'){ const s = getState(); if(s) window.renderBadges(s); } }catch(e){}
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    updateSeriesChip();
+    // re-run when switching to Profile
+    document.addEventListener('click', function(ev){
+      const nav = ev.target.closest('.nav-btn');
+      if(nav && nav.dataset && nav.dataset.view === 'view-profile'){
+        setTimeout(updateSeriesChip, 60);
+      }
+      if(ev.target.closest('.today-check,.check')){
+        setTimeout(window.refresh, 100);
+      }
+    }, {capture:true, passive:true});
+
+    // Light periodic sync
+    setInterval(updateSeriesChip, 1500);
+  });
+})();
+</script>
+<!-- === /Final: Gold Gamified Series Chip === -->
+
+
+<!-- === Achievement Modal + Cleanup (v6) === -->
+<style>
+  /* Modal styles */
+  .achv-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,.55);
+    display:none; align-items:center; justify-content:center; z-index:999999;
+    backdrop-filter: blur(3px);
+  }
+  .achv-backdrop.show{ display:flex; }
+  .achv-modal{
+    width:min(92vw, 380px);
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.3));
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:20px; padding:18px 16px 16px;
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+    animation: achv-pop .45s ease both;
+  }
+  @keyframes achv-pop{ 0%{ transform:scale(.86); opacity:0 } 60%{ transform:scale(1.04); opacity:1 } 100%{ transform:scale(1) } }
+  .achv-header{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .achv-icon{
+    font-size:22px; line-height:1;
+    background: radial-gradient(80% 140% at 20% 0%, #ffef9a, #ffd166 50%, #f7b733 80%);
+    padding:8px; border-radius:14px; border:1px solid rgba(255,215,120,.8);
+    box-shadow: 0 8px 22px rgba(247,183,51,.35), inset 0 1px 0 rgba(255,255,255,.45);
+  }
+  .achv-title{ font-weight:900; font-size:16px; }
+  .achv-body{ color:var(--muted); font-size:14px; margin-bottom:12px; }
+  .achv-actions{ display:flex; gap:8px; justify-content:flex-end; }
+  .btn{
+    padding:10px 12px; border-radius:12px; cursor:pointer; border:1px solid rgba(255,255,255,.12);
+    background:var(--panel); color:#e6eef3;
+  }
+  .btn.primary{
+    background:linear-gradient(90deg, #ffd166, #f7b733);
+    color:#1a1400; font-weight:800; border-color:rgba(255,215,120,.8);
+    box-shadow: 0 10px 20px rgba(247,183,51,.35);
+  }
+</style>
+<div class="achv-backdrop" id="achv-backdrop" aria-hidden="true">
+  <div class="achv-modal" role="dialog" aria-modal="true" aria-labelledby="achv-title">
+    <div class="achv-header">
+      <div class="achv-icon">🏆</div>
+      <div class="achv-title" id="achv-title">Поздравляем! Новое достижение</div>
+    </div>
+    <div class="achv-body" id="achv-text">Вы разблокировали награду.</div>
+    <div class="achv-actions">
+      <button class="btn" id="achv-close">Закрыть</button>
+      <button class="btn primary" id="achv-ok">Класс!</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+  // Remove legacy chip without number if exists
+  function cleanupLegacyChip(){
+    const oldChip = document.getElementById('streak-chip-el');
+    if(oldChip) oldChip.remove();
+  }
+  cleanupLegacyChip();
+
+  // Modal helpers
+  function openAchv(text){
+    try{
+      const bd = document.getElementById('achv-backdrop');
+      const t  = document.getElementById('achv-text');
+      if(!bd || !t) return;
+      t.textContent = text || 'Вы разблокировали награду.';
+      bd.classList.add('show'); bd.setAttribute('aria-hidden','false');
+    }catch(e){}
+  }
+  function closeAchv(){
+    try{
+      const bd = document.getElementById('achv-backdrop');
+      if(!bd) return;
+      bd.classList.remove('show'); bd.setAttribute('aria-hidden','true');
+    }catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    const bd = document.getElementById('achv-backdrop');
+    const ok = document.getElementById('achv-ok');
+    const cl = document.getElementById('achv-close');
+    ok && ok.addEventListener('click', closeAchv, {passive:true});
+    cl && cl.addEventListener('click', closeAchv, {passive:true});
+    bd && bd.addEventListener('click', function(e){ if(e.target === bd) closeAchv(); }, {passive:true});
+  });
+
+  // Hook into renderBadges to trigger modal on new unlocks
+  // We wrap existing window.renderBadges if present, otherwise we create a new one that only sets UI state (no modal triggers).
+  (function(){
+    const original = window.renderBadges;
+    window.renderBadges = function(state){
+      const prevStateRaw = localStorage.getItem(STORAGE_KEY);
+      let prevBadges = {streak:[], mastered:[]};
+      try{
+        const s = JSON.parse(prevStateRaw||'null');
+        if(s && s.profile && s.profile.badges){
+          prevBadges = { 
+            streak: Array.isArray(s.profile.badges.streak) ? s.profile.badges.streak.slice() : [],
+            mastered: Array.isArray(s.profile.badges.mastered) ? s.profile.badges.mastered.slice() : []
+          };
+        }
+      }catch(_){}
+
+      // Call existing implementation to re-render UI + persist newly earned
+      if(typeof original === 'function'){
+        original(state);
+      }
+
+      // Compare after original render/persist
+      try{
+        const after = JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+        let gained = [];
+        if(after && after.profile && after.profile.badges){
+          const aS = new Set(after.profile.badges.streak||[]);
+          const aM = new Set(after.profile.badges.mastered||[]);
+          const pS = new Set(prevBadges.streak||[]);
+          const pM = new Set(prevBadges.mastered||[]);
+
+          // Any newly added items?
+          aS.forEach(n=>{ if(!pS.has(n)) gained.push({type:'streak', n}); });
+          aM.forEach(n=>{ if(!pM.has(n)) gained.push({type:'mastered', n}); });
+        }
+        if(gained.length){
+          const last = gained[gained.length-1];
+          if(last.type==='streak'){
+            openAchv('Поздравляем! Новая серия: ' + last.n + ' ' + decl(last.n, ['день','дня','дней']));
+          } else {
+            openAchv('Поздравляем! Освоено привычек: ' + last.n);
+          }
+        }
+      }catch(_){}
+    };
+  })();
+
+  function decl(n, forms){
+    n = Math.abs(n) % 100; var n1 = n % 10;
+    if (n>10 && n<20) return forms[2];
+    if (n1>1 && n1<5) return forms[1];
+    if (n1==1) return forms[0];
+    return forms[2];
+  }
+})();
+</script>
+<!-- === /Achievement Modal + Cleanup (v6) === -->
+
+
+<!-- === v7: Strong fixes for duplicates & instant achievements === -->
+<style>
+  /* Ensure profile streak text never shows and can't affect layout */
+  #profile-streak{ display:none !important; height:0 !important; overflow:hidden !important; }
+
+  /* Topmost, full-screen modal */
+  .achv-backdrop{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.60);
+    display:none; align-items:center; justify-content:center;
+    z-index:2147483647; /* absolute top */
+    backdrop-filter: blur(3px);
+  }
+  .achv-backdrop.show{ display:flex; }
+
+  /* When modal open, prevent background scroll */
+  body.modal-open{ overflow:hidden; }
+
+  /* Make the modal slightly larger on mobile for "full screen feel" */
+  @media (max-width: 480px){
+    .achv-modal{ width:92vw; }
+  }
+</style>
+<script>
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
+  const MASTERED_STEPS = [1,2,3,4,5];
+
+  function getState(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
+  }
+  function setState(s){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){}
+  }
+  function ensureProfileFields(s){
+    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
+    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
+  }
+  function computeMastered(s){
+    let c=0; (s.habits||[]).forEach(h=>{ if(h && h.targetDays && Array.isArray(h.days) && h.days.length >= Math.max(1,h.targetDays)) c++; });
+    return c;
+  }
+  function decl(n, forms){
+    n = Math.abs(n) % 100; var n1 = n % 10;
+    if (n>10 && n<20) return forms[2];
+    if (n1>1 && n1<5) return forms[1];
+    if (n1==1) return forms[0];
+    return forms[2];
+  }
+
+  /* ===== Duplicate chip prevention ===== */
+  function removeLegacyChips(){
+    document.querySelectorAll('#streak-chip-el').forEach(n=> n.remove());
+  }
+  function keepOnlyGoldChip(){
+    const holder = document.getElementById('series-chip-holder');
+    if(!holder) return;
+    const gold = document.getElementById('series-chip-gold');
+    // Remove any stray chips inside holder except our gold
+    holder.querySelectorAll('span').forEach(n=>{ if(n.id !== 'series-chip-gold') n.remove(); });
+    // Also scan profile block for any chips with text "Серия" and remove extras
+    const prof = document.getElementById('view-profile') || document;
+    const chips = prof.querySelectorAll('span');
+    let seenGold = false;
+    chips.forEach(n=>{
+      if(n.id==='series-chip-gold'){ if(seenGold) n.remove(); seenGold=true; }
+      else if(/Серия/i.test(n.textContent||'')){ n.remove(); }
+    });
+  }
+
+  /* ===== Modal control ===== */
+  function openAchvFullscreen(text){
+    const bd = document.getElementById('achv-backdrop');
+    const body = document.body;
+    const t  = document.getElementById('achv-text');
+    if(!bd || !t) return;
+    t.textContent = text || 'Вы разблокировали награду.';
+    bd.classList.add('show');
+    body.classList.add('modal-open');
+  }
+  function closeAchv(){
+    const bd = document.getElementById('achv-backdrop');
+    const body = document.body;
+    if(!bd) return;
+    bd.classList.remove('show');
+    body.classList.remove('modal-open');
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    const bd = document.getElementById('achv-backdrop');
+    const ok = document.getElementById('achv-ok');
+    const cl = document.getElementById('achv-close');
+    ok && ok.addEventListener('click', closeAchv, {passive:true});
+    cl && cl.addEventListener('click', closeAchv, {passive:true});
+    bd && bd.addEventListener('click', function(e){ if(e.target === bd) closeAchv(); }, {passive:true});
+  });
+
+  /* ===== Immediate achievement trigger (no refresh needed) ===== */
+  function evaluateAndTrigger(){
+    const s = getState();
+    if(!s) return;
+    ensureProfileFields(s);
+    const beforeStreak = new Set(s.profile.badges.streak||[]);
+    const beforeMastered = new Set(s.profile.badges.mastered||[]);
+
+    const curStreak = s.profile.streak || 0;
+    const curMastered = computeMastered(s);
+
+    // Determine which thresholds should be unlocked now
+    const newStreak = STREAK_STEPS.filter(n=> curStreak>=n && !beforeStreak.has(n));
+    const newMastered = MASTERED_STEPS.filter(n=> curMastered>=n && !beforeMastered.has(n));
+
+    if(newStreak.length || newMastered.length){
+      // Persist new earned badges
+      const mergedS = new Set([...beforeStreak, ...newStreak]); s.profile.badges.streak = Array.from(mergedS).sort((a,b)=>a-b);
+      const mergedM = new Set([...beforeMastered, ...newMastered]); s.profile.badges.mastered = Array.from(mergedM).sort((a,b)=>a-b);
+      setState(s);
+
+      // Update medals UI if available
+      try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
+
+      // Open modal for the last newly earned
+      const msg = newStreak.length
+        ? ('Поздравляем! Новая серия: ' + newStreak[newStreak.length-1] + ' ' + decl(newStreak[newStreak.length-1], ['день','дня','дней']))
+        : ('Поздравляем! Освоено привычек: ' + newMastered[newMastered.length-1]);
+      openAchvFullscreen(msg);
+    }
+  }
+
+  /* Hook clicks on "сегодня" and nav to профиль */
+  document.addEventListener('DOMContentLoaded', function(){
+    // Remove any duplicates early
+    removeLegacyChips();
+    keepOnlyGoldChip();
+
+    document.addEventListener('click', function(e){
+      // checkbox click -> short delay to let app update storage, then evaluate
+      if(e.target.closest('.today-check,.check')){
+        setTimeout(function(){
+          try{
+            // also update series chip number if our global refresh exists
+            if(window.refresh) window.refresh();
+            evaluateAndTrigger();
+          }catch(_){}
+        }, 80);
+      }
+      // entering profile view -> clean duplicates and update chip text
+      const nav = e.target.closest('.nav-btn');
+      if(nav && nav.dataset && nav.dataset.view === 'view-profile'){
+        setTimeout(function(){
+          try{
+            removeLegacyChips();
+            keepOnlyGoldChip();
+            if(window.refresh) window.refresh();
+          }catch(_){}
+        }, 60);
+      }
+    }, {capture:true, passive:true});
+
+    // Keep things tidy over time
+    setInterval(function(){
+      try{
+        keepOnlyGoldChip();
+      }catch(_){}
+    }, 2000);
+  });
+})();
+</script>
+<!-- === /v7 fixes === -->
+
+
+<!-- === v8: Robust streak recompute + full-screen modal behavior === -->
+<script>
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
+  const MASTERED_STEPS = [1,2,3,4,5];
+
+  function getState(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; }
+  }
+  function setState(s){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){}
+  }
+  function ensureProfileFields(s){
+    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
+    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
+  }
+  function isoDate(d){ const t=new Date(d.getFullYear(), d.getMonth(), d.getDate()); return t.toISOString().slice(0,10); }
+  function computeStreakFromState(s){
+    let streak = 0;
+    if(!s || !Array.isArray(s.habits) || s.habits.length===0) return 0;
+    const d = new Date();
+    while(true){
+      const key = isoDate(d);
+      const anyDone = s.habits.some(h => Array.isArray(h.days) && h.days.includes(key));
+      if(anyDone){ streak++; d.setDate(d.getDate()-1); } else { break; }
+    }
+    return streak;
+  }
+  function computeMastered(s){
+    let c=0; (s.habits||[]).forEach(h=>{ if(h && h.targetDays && Array.isArray(h.days) && h.days.length >= Math.max(1,h.targetDays)) c++; });
+    return c;
+  }
+  function decl(n, forms){
+    n = Math.abs(n) % 100; var n1 = n % 10;
+    if (n>10 && n<20) return forms[2];
+    if (n1>1 && n1<5) return forms[1];
+    if (n1==1) return forms[0];
+    return forms[2];
+  }
+
+  // Gold series chip updater (single source of truth)
+  function updateGoldChip(){
+    const holder = document.getElementById('series-chip-holder');
+    if(!holder) return;
+    let chip = document.getElementById('series-chip-gold');
+    if(!chip){
+      chip = document.createElement('span');
+      chip.id = 'series-chip-gold';
+      chip.className = 'series-chip-gold';
+      chip.innerHTML = `<span class="flame">🔥</span><span class="txt">Серия 0 дней</span>`;
+      holder.innerHTML = ''; holder.appendChild(chip);
+    }
+    const s = getState(); ensureProfileFields(s);
+    const txt = chip.querySelector('.txt');
+    const v = typeof s.profile.streak==='number' ? s.profile.streak : 0;
+    if(txt) txt.textContent = 'Серия ' + v + ' ' + decl(v, ['день','дня','дней']);
+  }
+
+  function recomputeAndPersistStreakNow(){
+    const s = getState(); if(!s){ return 0; }
+    ensureProfileFields(s);
+    const v = computeStreakFromState(s);
+    if(s.profile.streak !== v){ s.profile.streak = v; setState(s); }
+    return v;
+  }
+
+  function evaluateAchievementsImmediate(){
+    const s = getState(); if(!s) return;
+    ensureProfileFields(s);
+    const curStreak = s.profile.streak || 0;
+    const curMastered = computeMastered(s);
+    const prevS = new Set(s.profile.badges.streak||[]);
+    const prevM = new Set(s.profile.badges.mastered||[]);
+    const newS = STREAK_STEPS.filter(n => curStreak>=n && !prevS.has(n));
+    const newM = MASTERED_STEPS.filter(n => curMastered>=n && !prevM.has(n));
+    if(newS.length || newM.length){
+      s.profile.badges.streak = Array.from(new Set([...prevS, ...newS])).sort((a,b)=>a-b);
+      s.profile.badges.mastered = Array.from(new Set([...prevM, ...newM])).sort((a,b)=>a-b);
+      setState(s);
+      try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
+      const msg = newS.length
+        ? ('Поздравляем! Новая серия: ' + newS[newS.length-1] + ' ' + decl(newS[newS.length-1], ['день','дня','дней']))
+        : ('Поздравляем! Освоено привычек: ' + newM[newM.length-1]);
+      // open modal (fullscreen; function defined in earlier patch)
+      try{
+        if(typeof openAchvFullscreen==='function'){ openAchvFullscreen(msg); }
+        else {
+          // fallback to previous openAchv
+          if(typeof openAchv==='function') openAchv(msg);
+          // also toggle class to prevent scroll if backdrop exists
+          const bd = document.getElementById('achv-backdrop');
+          if(bd){ document.body.classList.add('modal-open'); bd.classList.add('show'); }
+        }
+      }catch(_){}
+    }
+  }
+
+  // Clean any duplicate chips every so often
+  function cleanDuplicates(){
+    const holder = document.getElementById('series-chip-holder');
+    if(holder){
+      // Remove all spans except series-chip-gold
+      holder.querySelectorAll('span').forEach(n=>{ if(n.id!=='series-chip-gold') n.remove(); });
+    }
+    // Remove any old chips elsewhere
+    document.querySelectorAll('#streak-chip-el').forEach(n=> n.remove());
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    // Initial recompute to sync state (ensures streak visible without relying on app render)
+    recomputeAndPersistStreakNow();
+    updateGoldChip();
+    cleanDuplicates();
+
+    // Clicks on "Сегодня" => recompute, update chip, achievements
+    document.addEventListener('click', function(e){
+      if(e.target.closest('.today-check,.check')){
+        setTimeout(function(){
+          try{
+            recomputeAndPersistStreakNow();
+            updateGoldChip();
+            evaluateAchievementsImmediate();
+          }catch(_){}
+        }, 90);
+      }
+      const nav = e.target.closest('.nav-btn');
+      if(nav && nav.dataset && nav.dataset.view==='view-profile'){
+        setTimeout(function(){
+          try{
+            recomputeAndPersistStreakNow();
+            updateGoldChip();
+            cleanDuplicates();
+          }catch(_){}
+        }, 60);
+      }
+    }, {capture:true, passive:true});
+
+    // Periodic safety sync (very light)
+    setInterval(function(){
+      try{
+        recomputeAndPersistStreakNow();
+        updateGoldChip();
+        cleanDuplicates();
+      }catch(_){}
+    }, 2000);
+  });
+})();
+</script>
+<!-- === /v8 === -->
+
+
+<!-- === v9: Guaranteed chip + exact mastered trigger on last day === -->
+<script>
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
+
+  function getState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; } }
+  function setState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){} }
+  function ensureProfileFields(s){
+    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
+    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
+  }
+  function isoDate(d){ const t=new Date(d.getFullYear(), d.getMonth(), d.getDate()); return t.toISOString().slice(0,10); }
+  function computeStreakFromState(s){
+    let streak = 0;
+    if(!s || !Array.isArray(s.habits) || s.habits.length===0) return 0;
+    const d = new Date();
+    while(true){
+      const key = isoDate(d);
+      const anyDone = s.habits.some(h => Array.isArray(h.days) && h.days.includes(key));
+      if(anyDone){ streak++; d.setDate(d.getDate()-1); } else { break; }
+    }
+    return streak;
+  }
+  function decl(n, forms){
+    n = Math.abs(n) % 100; var n1 = n % 10;
+    if (n>10 && n<20) return forms[2];
+    if (n1>1 && n1<5) return forms[1];
+    if (n1==1) return forms[0];
+    return forms[2];
+  }
+
+  /* ===== Ensure chip holder & chip exist ===== */
+  function ensureGoldChipHolder(){
+    const profile = document.getElementById('view-profile');
+    if(!profile) return null;
+    const nameNode = profile.querySelector('.name');
+    let holder = document.getElementById('series-chip-holder');
+    if(!holder){
+      holder = document.createElement('div');
+      holder.id = 'series-chip-holder';
+      holder.className = 'series-chip-place';
+      if(nameNode && nameNode.parentElement){
+        nameNode.parentElement.after(holder);
+      } else {
+        profile.prepend(holder);
+      }
+    }
+    let chip = document.getElementById('series-chip-gold');
+    if(!chip){
+      chip = document.createElement('span');
+      chip.id = 'series-chip-gold';
+      chip.className = 'series-chip-gold';
+      chip.innerHTML = `<span class="flame">🔥</span><span class="txt">Серия 0 дней</span>`;
+      holder.innerHTML = ''; holder.appendChild(chip);
+    }
+    return {holder, chip};
+  }
+
+  function updateGoldChip(){
+    const s = getState(); if(!s) return;
+    ensureProfileFields(s);
+    const nodes = ensureGoldChipHolder(); if(!nodes) return;
+    const txt = nodes.chip.querySelector('.txt');
+    const v = typeof s.profile.streak==='number' ? s.profile.streak : 0;
+    if(txt) txt.textContent = 'Серия ' + v + ' ' + decl(v, ['день','дня','дней']);
+  }
+
+  function recomputeAndPersistStreakNow(){
+    const s = getState(); if(!s){ return 0; }
+    ensureProfileFields(s);
+    const v = computeStreakFromState(s);
+    if(s.profile.streak !== v){ s.profile.streak = v; setState(s); }
+    return v;
+  }
+
+  /* ===== Exact "mastered on last day" detection ===== */
+  function getMasteredMap(s){
+    const map = new Map();
+    (s?.habits||[]).forEach(h=>{
+      const td = h?.targetDays ? Math.max(1, h.targetDays) : null;
+      const done = Array.isArray(h?.days) ? h.days.length : 0;
+      map.set(h.id, {target: td, done});
+    });
+    return map;
+  }
+
+  function detectNewMastered(prevMap, nextMap){
+    // Returns number of newly mastered habits (transition from done == target-1 to done == target)
+    let newCount = 0;
+    nextMap.forEach((v, id)=>{
+      const p = prevMap.get(id);
+      if(!v || !v.target) return;
+      const justCompleted = (p && p.done === v.target - 1) && (v.done === v.target);
+      if(justCompleted) newCount++;
+    });
+    return newCount;
+  }
+
+  /* ===== Modal helpers (reuse from previous versions if available) ===== */
+  function openFullscreen(text){
+    if(typeof openAchvFullscreen === 'function'){ openAchvFullscreen(text); return; }
+    const bd = document.getElementById('achv-backdrop');
+    const t  = document.getElementById('achv-text');
+    if(bd && t){
+      t.textContent = text || 'Вы разблокировали награду.';
+      bd.classList.add('show'); document.body.classList.add('modal-open');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    // Initial sync
+    recomputeAndPersistStreakNow();
+    updateGoldChip();
+
+    // Click handler with pre/post snapshots to catch "last day" exactly
+    document.addEventListener('click', function(e){
+      const isToday = !!e.target.closest('.today-check,.check');
+      const nav = e.target.closest('.nav-btn');
+      let prevMasteredMap = null;
+      if(isToday){
+        const sPrev = getState() || {};
+        prevMasteredMap = getMasteredMap(sPrev);
+      }
+      // After click is processed by app, recompute
+      setTimeout(function(){
+        try{
+          recomputeAndPersistStreakNow();
+          updateGoldChip();
+
+          if(isToday){
+            const sNext = getState() || {};
+            const nextMasteredMap = getMasteredMap(sNext);
+
+            const newlyMastered = prevMasteredMap ? detectNewMastered(prevMasteredMap, nextMasteredMap) : 0;
+
+            // If exactly completed a habit today -> show mastered modal (single increment)
+            if(newlyMastered > 0){
+              openFullscreen('Поздравляем! Привычка завершена 🎉');
+              // Also persist mastered badges count threshold if crossed (1..5) now
+              const prevBadges = new Set((sPrev?.profile?.badges?.mastered)||[]);
+              const masteredCount = Array.from(nextMasteredMap.values()).filter(v=> v.target && v.done >= v.target).length;
+              let toAdd = 0;
+              for(let step of [1,2,3,4,5]){ if(masteredCount >= step && !prevBadges.has(step)) toAdd = step; }
+              if(toAdd){
+                const s = getState(); ensureProfileFields(s);
+                const setM = new Set((s.profile.badges.mastered)||[]); setM.add(toAdd);
+                s.profile.badges.mastered = Array.from(setM).sort((a,b)=>a-b);
+                setState(s);
+                try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
+              }
+            }
+
+            // Streak thresholds check (after recompute)
+            const sNow = getState() || {};
+            ensureProfileFields(sNow);
+            const curStreak = sNow.profile.streak||0;
+            const prevS = new Set((sPrev?.profile?.badges?.streak)||[]);
+            let streakAdd = 0;
+            for(let n of STREAK_STEPS){ if(curStreak>=n && !prevS.has(n)) streakAdd = n; }
+            if(streakAdd){
+              const s = getState(); ensureProfileFields(s);
+              const setS = new Set((s.profile.badges.streak)||[]); setS.add(streakAdd);
+              s.profile.badges.streak = Array.from(setS).sort((a,b)=>a-b);
+              setState(s);
+              try{ if(typeof window.renderBadges==='function') window.renderBadges(s); }catch(_){}
+              openFullscreen('Поздравляем! Новая серия: ' + streakAdd + ' ' + decl(streakAdd, ['день','дня','дней']));
+            }
+          }
+        }catch(_){}
+      }, isToday ? 120 : (nav ? 60 : 0));
+    }, {capture:true, passive:true});
+
+    // Periodic gentle sync for chip
+    setInterval(function(){ try{ recomputeAndPersistStreakNow(); updateGoldChip(); }catch(_){} }, 2500);
+  });
+})();
+</script>
+<!-- === /v9 === -->
+
+
+<!-- === v10: Exact per-habit last-day detection === -->
+<script>
+(function(){
+  const STORAGE_KEY = 'habit_traker_demo_v3';
+  const MASTERED_STEPS = [1,2,3,4,5];
+  const STREAK_STEPS = [7,14,21,30,45,60,75,90,100,120];
+
+  function getState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); }catch(e){ return null; } }
+  function setState(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){} }
+  function ensureProfileFields(s){
+    s.profile = s.profile || {name:'Гость', avatar:'', streak:0};
+    s.profile.badges = s.profile.badges || {streak:[], mastered:[]};
+  }
+  function isoDate(d){ const t=new Date(d.getFullYear(), d.getMonth(), d.getDate()); return t.toISOString().slice(0,10); }
+  function decl(n, forms){
+    n = Math.abs(n) % 100; var n1 = n % 10;
+    if (n>10 && n<20) return forms[2];
+    if (n1>1 && n1<5) return forms[1];
+    if (n1==1) return forms[0];
+    return forms[2];
+  }
+
+  function snapshotHabits(s){
+    const map = new Map();
+    (s?.habits||[]).forEach(h=>{
+      const target = h?.targetDays ? Math.max(1, h.targetDays) : null;
+      const set = new Set(Array.isArray(h?.days) ? h.days.slice() : []);
+      map.set(h.id, {target, set, count: set.size, name: h.name||''});
+    });
+    return map;
+  }
+  function masteredCountFromSnapshot(snap){
+    let c=0;
+    snap.forEach(v=>{ if(v.target && v.count >= v.target) c++; });
+    return c;
+  }
+
+  // Modal opener fallback
+  function openFullscreen(msg){
+    if(typeof openAchvFullscreen==='function'){ openAchvFullscreen(msg); return; }
+    const bd = document.getElementById('achv-backdrop');
+    const t  = document.getElementById('achv-text');
+    if(bd && t){
+      t.textContent = msg || 'Вы разблокировали награду.';
+      bd.classList.add('show'); document.body.classList.add('modal-open');
+    }
+  }
+
+  // On click "Сегодня" -> use per-habit delta detection
+  document.addEventListener('DOMContentLoaded', function(){
+    document.addEventListener('click', function(e){
+      const todayBtn = e.target.closest('.today-check,.check');
+      const nav = e.target.closest('.nav-btn');
+
+      let prevSnap = null;
+      let prevBadges = null;
+      let prevStreakBadges = null;
+      let prevStreakVal = null;
+
+      if(todayBtn){
+        const sPrev = getState() || {};
+        ensureProfileFields(sPrev);
+        prevSnap = snapshotHabits(sPrev);
+        prevBadges = new Set((sPrev.profile.badges?.mastered)||[]);
+        prevStreakBadges = new Set((sPrev.profile.badges?.streak)||[]);
+        prevStreakVal = sPrev.profile.streak||0;
+      }
+
+      setTimeout(function(){
+        try{
+          const sNext = getState() || {};
+          ensureProfileFields(sNext);
+
+          const nextSnap = snapshotHabits(sNext);
+          const today = isoDate(new Date());
+
+          // ===== Exact last-day completion detection =====
+          if(prevSnap){
+            const newlyCompleted = [];
+            nextSnap.forEach((next, id)=>{
+              const prev = prevSnap.get(id);
+              if(!prev) return;
+              // must be a +1 change and today must be newly present
+              const delta = next.count - prev.count;
+              const todayWas = prev.set.has(today);
+              const todayNow = next.set.has(today);
+              const isIncrementToday = delta === 1 && !todayWas && todayNow;
+              const hitsTargetNow = !!next.target && next.count === next.target;
+              if(isIncrementToday && hitsTargetNow){
+                newlyCompleted.push({id, name: next.name, target: next.target});
+              }
+            });
+
+            if(newlyCompleted.length){
+              // Update mastered threshold badges based on total mastered count after change
+              const prevCount = masteredCountFromSnapshot(prevSnap);
+              const nextCount = masteredCountFromSnapshot(nextSnap);
+              if(nextCount > prevCount){
+                // add highest crossed threshold
+                let add = 0;
+                for(const step of MASTERED_STEPS){ if(nextCount >= step && !prevBadges.has(step)) add = step; }
+                if(add){
+                  const setM = new Set(sNext.profile.badges.mastered||[]); setM.add(add);
+                  sNext.profile.badges.mastered = Array.from(setM).sort((a,b)=>a-b);
+                  setState(sNext);
+                  if(typeof window.renderBadges==='function') window.renderBadges(sNext);
+                }
+              }
+              // Show modal once (use the last completed habit)
+              const last = newlyCompleted[newlyCompleted.length-1];
+              openFullscreen('Поздравляем! Привычка завершена 🎉');
+            }
+          }
+
+          // ===== Streak thresholds (use value already maintained by app or our later patches) =====
+          const curStreak = (sNext.profile.streak||0);
+          let toAddStreak = 0;
+          for(const n of STREAK_STEPS){ if(curStreak >= n && !prevStreakBadges?.has(n)) toAddStreak = n; }
+          if(toAddStreak){
+            const setS = new Set(sNext.profile.badges.streak||[]); setS.add(toAddStreak);
+            sNext.profile.badges.streak = Array.from(setS).sort((a,b)=>a-b);
+            setState(sNext);
+            if(typeof window.renderBadges==='function') window.renderBadges(sNext);
+            openFullscreen('Поздравляем! Новая серия: ' + toAddStreak + ' ' + decl(toAddStreak, ['день','дня','дней']));
+          }
+
+          // Keep chip text fresh if our helper exists
+          if(typeof window.refresh==='function') window.refresh();
+        }catch(_){}
+      }, todayBtn ? 140 : (nav ? 70 : 0));
+    }, {capture:true, passive:true});
+  });
+})();
+</script>
+<!-- === /v10 === -->
+
 </body>
 </html>
