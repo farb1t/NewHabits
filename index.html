@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ru">
-\1
 <!-- === MOBILE ADAPTATION === -->
 <meta name="theme-color" content="#0b0c0f">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -239,6 +238,30 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
 
 </style>
 <style>.color-dot{display:none!important}</style>
+
+<style>
+/* === vFS: Fullscreen + Fixed Bottom Nav (mobile) === */
+@media (max-width: 1024px){
+  .app{
+    max-width: 100% !important;
+    width: 100% !important;
+    height: calc(var(--vh, 1vh) * 100) !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  nav.bottom{
+    position: fixed !important;
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    z-index: 1000;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  main{
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+</style>
+
 </head>
 <body data-avatar-ready="1">
 <div class="app" role="application">
