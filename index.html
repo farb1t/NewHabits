@@ -138,7 +138,7 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
     <section class="view hidden" id="view-profile">
       <div class="profile">
         <label class="avatar" id="avatar-label">
-          <img alt="avatar" class="hidden" id="avatar-img" src=""/>
+          
           <div id="avatar-placeholder">👤</div>
           <input accept="image/*" id="avatar-input" style="display:none" type="file"/>
         </label>
@@ -792,5 +792,94 @@ html, body { -ms-overflow-style: none; } /* IE/Edge legacy */
 <style>.bottom *{pointer-events:auto !important;}</style>
 
   <input type="file" id="avatarFile" accept="image/*" capture="user" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" aria-hidden="true">
+<script>
+// --- Avatar mobile fix: use existing #avatar-input, unhide image, hide placeholder ---
+(function(){
+  const wrap = document.getElementById('avatar-label');
+  const img = wrap ? wrap.querySelector('#avatar-img') : document.getElementById('avatar-img');
+  const placeholder = document.getElementById('avatar-placeholder');
+  const existingInput = document.getElementById('avatar-input');
+  const fileInput = existingInput || document.getElementById('avatarFile');
+
+  function setVisible(showImg){
+    if(!img) return;
+    if(showImg){
+      img.classList.remove('hidden');
+      if(placeholder) placeholder.style.display = 'none';
+    }
+  }
+
+  function setAvatar(src){
+    try { localStorage.setItem('profile.avatar', src); } catch(e){}
+    if(img){ img.src = src; setVisible(true); }
+    if(wrap && wrap.style){ wrap.style.backgroundImage = 'none'; }
+  }
+
+  function handleFiles(files){
+    const f = files && files[0];
+    if(!f || !/^image\//i.test(f.type)) return;
+    const reader = new FileReader();
+    reader.onload = function(){
+      const dataURL = reader.result;
+      const tmp = new Image();
+      tmp.onload = function(){
+        let w = tmp.width, h = tmp.height, max = 512;
+        if(w > max || h > max){
+          if(w > h){ h = Math.round(h * (max/w)); w = max; } else { w = Math.round(w * (max/h)); h = max; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(tmp, 0, 0, w, h);
+        let out = canvas.toDataURL('image/jpeg', 0.85);
+        if(!out) out = canvas.toDataURL('image/png');
+        setAvatar(out);
+      };
+      tmp.src = dataURL;
+    };
+    reader.readAsDataURL(f);
+  }
+
+  function init(){
+    if(!fileInput) return;
+    // Make input iOS-friendly (not display:none)
+    try {
+      fileInput.setAttribute('accept','image/*');
+      fileInput.setAttribute('capture','user');
+      fileInput.style.display = 'block';
+      fileInput.style.position = 'absolute';
+      fileInput.style.left = '-9999px';
+      fileInput.style.width = '1px';
+      fileInput.style.height = '1px';
+      fileInput.style.opacity = '0';
+      fileInput.setAttribute('aria-hidden','true');
+    } catch(e){}
+
+    if(wrap){
+      const openPicker = ()=> fileInput && fileInput.click();
+      wrap.style.cursor = 'pointer';
+      wrap.addEventListener('click', openPicker, {passive:true});
+      wrap.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openPicker(); }});
+    }
+
+    fileInput.addEventListener('change', function(e){
+      handleFiles(e.target.files);
+      e.target.value = '';
+    }, {passive:true});
+
+    // Restore from localStorage
+    try {
+      const saved = localStorage.getItem('profile.avatar');
+      if(saved){ setAvatar(saved); }
+    } catch(e){}
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+       } else {
+    init();
+  }
+})();
+</script>
 </body>
 </html>
