@@ -273,6 +273,24 @@ nav.bottom{
 }
 </style>
 
+
+<style>
+/* kbfix: body bg scroll */
+@media (max-width: 900px){
+  body{ background-attachment: scroll !important; }
+  .app{ will-change: transform; transform: translateZ(0); }
+  html, body { overscroll-behavior: contain; }
+  @supports (height: 100dvh){
+    .app{ height: 100dvh !important; }
+  }
+}
+/* Adjust layout on keyboard open */
+body.kb-open nav.bottom{ position: static !important; } /* avoid fixed jank under keyboard */
+body.kb-open .app{ height: auto !important; min-height: calc(var(--vh, 1vh) * 100); }
+body.kb-open .chat{ height: auto !important; }
+body.kb-open main{ padding-bottom: 12px !important; }
+</style>
+
 </head>
 <body data-avatar-ready="1">
 <div class="app" role="application">
@@ -1757,6 +1775,53 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 </script>
 <!-- === /PATCH: Yandex fix === -->
+
+
+<script>
+/* kbfix: visualViewport */
+(function(){
+  function setVH(){
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', vh + 'px');
+  }
+  setVH();
+  window.addEventListener('resize', setVH, {passive:true});
+  window.addEventListener('orientationchange', setVH, {passive:true});
+
+  function isInput(el){
+    return el && (el.tagName==='INPUT' || el.tagName==='TEXTAREA' || el.isContentEditable);
+  }
+  function toggleKB(open){
+    document.body.classList.toggle('kb-open', !!open);
+    if(open){
+      try{
+        var messages = document.getElementById('messages');
+        if(messages){ messages.scrollTop = messages.scrollHeight; }
+      }catch(e){}
+    }
+  }
+
+  var vv = window.visualViewport;
+  function updateKB(){
+    if(!vv){ return; }
+    var kb = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+    toggleKB(kb > 0);
+  }
+  if(vv){
+    vv.addEventListener('resize', updateKB, {passive:true});
+    vv.addEventListener('scroll', updateKB, {passive:true});
+    updateKB();
+  }
+
+  document.addEventListener('focusin', function(e){
+    if(isInput(e.target)){ setTimeout(updateKB, 50); setTimeout(updateKB, 250); }
+  }, {passive:true});
+  document.addEventListener('focusout', function(e){
+    if(isInput(e.target)){ setTimeout(updateKB, 50); setTimeout(updateKB, 250); }
+  }, {passive:true});
+})();
+</script>
 
 </body>
 </html>
