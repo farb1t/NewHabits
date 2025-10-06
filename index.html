@@ -340,7 +340,7 @@ body.kb-open nav.bottom{
     <section class="view hidden" id="view-profile">
       <div class="profile">
         <label class="avatar" id="avatar-label">
-          <img alt="avatar" class="hidden" id="avatar-img" src=""/>
+          <img alt="avatar" class="hidden" id="avatar-img" src=""/ decoding="async" loading="eager" >
           <div id="avatar-placeholder">👤</div>
           <input accept="image/*" id="avatar-input" style="display:none" type="file"/>
         </label>
@@ -893,10 +893,16 @@ listRoot.appendChild(card);
 
   function loadSavedAvatar(){
     try {
-      const saved = localStorage.getItem('profile.avatar');
+      let saved = localStorage.getItem('profile.avatar');
+      if(!saved){
+        const raw = localStorage.getItem('habit_traker_demo_v3');
+        if(raw){ try { const s = JSON.parse(raw); saved = s?.profile?.avatar || ''; } catch(e){} }
+      }
       if(saved && avatarImg){
         if(avatarImg.tagName.toLowerCase()==='img'){
           avatarImg.src = saved;
+          try{ avatarImg.classList.remove('hidden'); }catch(e){}
+          try{ const ph=document.getElementById('avatar-placeholder'); if(ph) ph.style.display='none'; }catch(e){}
         } else {
           avatarImg.style.backgroundImage = 'url(' + saved + ')';
           avatarImg.style.backgroundSize = 'cover';
@@ -941,12 +947,24 @@ listRoot.appendChild(card);
   }
 
   function setAvatar(src){
+    try { localStorage.setItem('profile.avatar', src); } catch(e){ /* ignore */ }
+    // Sync main app state storage so renderProfile() also sees it
     try {
-      localStorage.setItem('profile.avatar', src);
-    } catch(e){ /* quota might fail, ignore */ }
+      const k='habit_traker_demo_v3';
+      const raw=localStorage.getItem(k);
+      if(raw){
+        const s=JSON.parse(raw);
+        s.profile = s.profile || {};
+        s.profile.avatar = src;
+        localStorage.setItem(k, JSON.stringify(s));
+      }
+    } catch(e){ /* ignore */ }
+    // Apply to DOM
     if(avatarImg){
       if(avatarImg.tagName.toLowerCase()==='img'){
         avatarImg.src = src;
+        try{ avatarImg.classList.remove('hidden'); }catch(e){}
+        try{ const ph=document.getElementById('avatar-placeholder'); if(ph) ph.style.display='none'; }catch(e){}
       } else {
         avatarImg.style.backgroundImage = 'url(' + src + ')';
         avatarImg.style.backgroundSize = 'cover';
@@ -969,20 +987,23 @@ listRoot.appendChild(card);
   }
 
   function init(){
-    if(!fileInput) return;
+    // If mobile file input missing, try to use existing #avatar-input
+    const altInput = document.getElementById('avatar-input');
+    if(!fileInput && !altInput) return;
+    const effectiveInput = fileInput || altInput;
     // iOS requires user gesture: click on avatar should trigger file input
     if(avatarImg){
       const makeClickable = (el)=>{
         el.style.cursor = 'pointer';
         el.setAttribute('role','button');
         el.setAttribute('tabindex','0');
-        const openPicker = ()=> fileInput && fileInput.click();
+        const openPicker = ()=> effectiveInput && effectiveInput.click();
         el.addEventListener('click', openPicker, {passive:true});
         el.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); openPicker(); } });
       };
       makeClickable(avatarImg);
     }
-    fileInput.addEventListener('change', function(e){
+    effectiveInput.addEventListener('change', function(e){
       handleFiles(e.target.files);
       // Reset value so selecting the same file again still fires change
       e.target.value = '';
@@ -1065,7 +1086,7 @@ listRoot.appendChild(card);
   function badgeSVG(type, n){
     if(type==='streak'){
       return `
-      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <svg width="72" height="72" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style="display:block;max-width:100%;height:auto">
         <defs>
           <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stop-color="#ffd166"/>
@@ -1073,7 +1094,7 @@ listRoot.appendChild(card);
             <stop offset="100%" stop-color="#ff3b30"/>
           </linearGradient>
         </defs>
-        <g filter="url(#none)">
+        <g>
           <path d="M32 6 C38 14, 46 20, 46 29 c0 10-8 18-14 21-6-3-14-11-14-21 0-9 8-15 14-23z" fill="url(#g1)"></path>
           <circle cx="32" cy="32" r="10" fill="rgba(0,0,0,0.15)"></circle>
           <text x="32" y="36" text-anchor="middle" font-size="14" font-weight="800" fill="#0b0c0f">${n}</text>
@@ -1081,7 +1102,7 @@ listRoot.appendChild(card);
       </svg>`;
     } else {
       return `
-      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <svg width="72" height="72" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style="display:block;max-width:100%;height:auto">
         <defs>
           <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stop-color="#ffd166"/>
